@@ -1,5 +1,5 @@
 {
-  "name": "tier-sdk",
+  "name": "@tier.run/sdk",
   "version": "0.0.0",
   "files": [
     "lib"
