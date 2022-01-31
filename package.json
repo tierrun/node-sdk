@@ -1,7 +1,9 @@
 {
   "name": "tier-sdk",
   "version": "0.0.0",
-  "files": ["lib"],
+  "files": [
+    "lib"
+  ],
   "main": "lib/index.js",
   "description": "SDK for using https://tier.run in Node.js applications",
   "repository": "https://github.com/tierdev/node-sdk",
@@ -19,5 +21,8 @@
   },
   "devDependencies": {
     "tap": "^15.1.6"
+  },
+  "dependencies": {
+    "minipass-fetch": "^1.4.1"
   }
 }
