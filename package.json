@@ -2,6 +2,7 @@
   "name": "tier-sdk",
   "version": "0.0.0",
   "files": ["lib"],
+  "main": "lib/index.js",
   "description": "SDK for using https://tier.run in Node.js applications",
   "repository": "https://github.com/tierdev/node-sdk",
   "author": "Isaac Z. Schlueter <i@izs.me> (https://izs.me)",
