@@ -4,6 +4,9 @@
   "files": [
     "lib"
   ],
+  "bin": {
+    "tier": "lib/bin.js"
+  },
   "main": "lib/index.js",
   "description": "SDK for using https://tier.run in Node.js applications",
   "repository": "https://github.com/tierdev/node-sdk",
