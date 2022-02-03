@@ -48,7 +48,7 @@ directly.
 RM
 
     cat > $os/$arch/index.js <<JS
-module.exports = require('path').resolve(__filename, 'tier')
+module.exports = require('path').resolve(__dirname, 'tier')
 JS
 
   done
