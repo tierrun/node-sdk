@@ -25,20 +25,20 @@ const run = (t, ...args) => {
   const LOGS = []
   const ERRS = []
   const EXITS = []
-  return t.test(args.join(' ') || '<noargs>', async t => {
+  return t.test(args.map(normalizePaths).join(' ') || '<noargs>', async t => {
     const { exit, argv } = process
     const { log, error } = console
     console.log = (...args) => LOGS.push(args)
     console.error = (...args) => ERRS.push(args)
     process.exit = code => EXITS.push(code)
     process.argv = [process.execPath, bin, ...args]
-    // have to repair process so tap can report properly
-    t.teardown(() => {
-      Object.assign(process, { argv, exit })
-      Object.assign(console, { error, log })
-    })
 
     await t.mock(bin, { '../lib/index.js': TierMock })
+
+    // have to repair process so tap can generate snapshots properly
+    Object.assign(process, { argv, exit })
+    Object.assign(console, { error, log })
+
     t.matchSnapshot(EXITS, 'exits')
     t.matchSnapshot(LOGS, 'logs')
     t.matchSnapshot(ERRS, 'errs')
