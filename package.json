@@ -5,7 +5,8 @@
     "lib"
   ],
   "bin": {
-    "tier": "lib/bin.js"
+    "tier": "lib/bin-wrap.js",
+    "tier-js": "lib/bin.js"
   },
   "main": "lib/index.js",
   "description": "SDK for using https://tier.run in Node.js applications",
@@ -26,6 +27,17 @@
     "tap": "^15.1.6"
   },
   "dependencies": {
-    "minipass-fetch": "^1.4.1"
+    "foreground-child": "^2.0.0",
+    "minipass-fetch": "^1.4.1",
+    "mkdirp": "^1.0.4",
+    "touch": "^3.1.0"
+  },
+  "optionalDependencies": {
+    "@tier.run/cli-darwin-amd64": "~0.0.0-0 || 0 || 1",
+    "@tier.run/cli-darwin-arm64": "~0.0.0-0 || 0 || 1",
+    "@tier.run/cli-linux-amd64": "~0.0.0-0 || 0 || 1",
+    "@tier.run/cli-linux-arm64": "~0.0.0-0 || 0 || 1",
+    "@tier.run/cli-windows-amd64": "~0.0.0-0 || 0 || 1",
+    "@tier.run/cli-windows-arm64": "~0.0.0-0 || 0 || 1"
   }
 }
