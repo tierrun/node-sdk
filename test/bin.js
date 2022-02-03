@@ -17,6 +17,10 @@ const TierMock = class Tier {
   }
 }
 
+const cwd = process.cwd()
+const normalizePaths = a => a.split(cwd).join('${CWD}').replace(/\\/g, '/')
+t.cleanSnapshot = normalizePaths
+
 const run = (t, ...args) => {
   const LOGS = []
   const ERRS = []
