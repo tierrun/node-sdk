@@ -1,7 +1,5 @@
 const t = require('tap')
 const bin = require.resolve('../lib/bin-wrap.js')
-console.error('TESTING BIN', bin)
-
 const OS = ['darwin', 'linux', 'windows']
 const ARCH = ['arm64', 'amd64']
 
