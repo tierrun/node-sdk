@@ -24,13 +24,13 @@
     "check-coverage": true
   },
   "devDependencies": {
-    "tap": "^15.1.6"
+    "mkdirp": "^1.0.4",
+    "tap": "^15.1.6",
+    "touch": "^3.1.0"
   },
   "dependencies": {
     "foreground-child": "^2.0.0",
-    "minipass-fetch": "^1.4.1",
-    "mkdirp": "^1.0.4",
-    "touch": "^3.1.0"
+    "minipass-fetch": "^1.4.1"
   },
   "optionalDependencies": {
     "@tier.run/cli-darwin-amd64": "~0.0.0-0 || 0 || 1",
