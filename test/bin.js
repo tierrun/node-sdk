@@ -115,7 +115,6 @@ t.test('weird throws', async t => {
   }
   await run(t, 'reserve', 'org:throw', 'feature:true')
   TierMock.prototype.reserve = async () => {
-    process.stderr.write('throw object\n')
     throw { stack: 'object throw' }
   }
   await run(t, 'reserve', 'org:throw', 'feature:obj')
