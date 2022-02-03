@@ -30,8 +30,8 @@ for os in "${OS[@]}"; do
 {
   "name": "@tier.run/cli-${os}-${arch}",
   "version": "$version",
-  "bin": { "tier": "./tier" },
-  "files": ["tier"],
+  "bin": { "tier-${os}-${arch}": "./tier" },
+  "files": ["tier", "index.js"],
   "os": ["$os"],
   "cpu": ["$arch"]
 }
@@ -39,7 +39,17 @@ PJ
     cat > $os/$arch/README.md <<RM
 # @tier.run/cli for ${os} ${arch}
 
-This installs the precompiled \`tier\` binary CLI.
+This package includes the pre-compiled tier binary, and an index.js which
+reports the full path to the compiled binary.
+
+You almost certainly want to use
+[@tier.run/sdk](https://npmjs.com/package/@tier.run/sdk), not this package
+directly.
 RM
+
+    cat > $os/$arch/index.js <<JS
+module.exports = require('path').resolve(__filename, 'tier')
+JS
+
   done
 done
