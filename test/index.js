@@ -46,7 +46,7 @@ t.test('so fetch', async t => {
 
   const s = http.createServer((req, res) => {
     const t = currentTest
-    t.equal(req.headers['tier-api-token'], 'fetch-test-api-token')
+    t.equal(req.headers.authorization, 'Bearer fetch-test-api-token')
     t.match(req.headers.accept, 'application/json')
     t.match(req.headers['user-agent'], `${pkg.name}/${pkg.version}`)
     t.match(req.headers['request-id'], /^[a-f0-9]{8}$/)

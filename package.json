@@ -39,5 +39,8 @@
     "@tier.run/cli-linux-arm64": "~0.0.0-0 || 0 || 1",
     "@tier.run/cli-windows-amd64": "~0.0.0-0 || 0 || 1",
     "@tier.run/cli-windows-arm64": "~0.0.0-0 || 0 || 1"
+  },
+  "engines": {
+    "node": ">=12"
   }
 }
