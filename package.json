@@ -1,12 +1,12 @@
 {
   "name": "@tier.run/sdk",
   "version": "0.0.7",
+  "type": "module",
   "files": [
     "lib"
   ],
   "bin": {
-    "tier": "lib/bin-wrap.js",
-    "tier-js": "lib/bin.js"
+    "tier": "lib/tier.js"
   },
   "main": "lib/index.js",
   "description": "SDK for using https://tier.run in Node.js applications",
@@ -14,23 +14,47 @@
   "author": "Isaac Z. Schlueter <i@izs.me> (https://izs.me)",
   "license": "ISC",
   "scripts": {
+    "prepare": "tsc",
+    "format": "prettier --write . --loglevel warn",
     "test": "tap",
     "snap": "tap",
     "preversion": "npm test",
     "postversion": "npm publish",
     "prepublishOnly": "git push origin --follow-tags"
   },
+  "prettier": {
+    "semi": false,
+    "printWidth": 80,
+    "tabWidth": 2,
+    "useTabs": false,
+    "singleQuote": true,
+    "jsxSingleQuote": false,
+    "bracketSameLine": true,
+    "arrowParens": "avoid",
+    "endOfLine": "lf"
+  },
+  "eslintIgnore": [
+    "/node_modules",
+    "/build",
+    "/public/build"
+  ],
   "tap": {
     "check-coverage": true
   },
   "devDependencies": {
+    "@types/opener": "^1.4.0",
     "mkdirp": "^1.0.4",
-    "tap": "^15.1.6",
-    "touch": "^3.1.0"
+    "prettier": "^2.6.2",
+    "tap": "^16.0.1",
+    "touch": "^3.1.0",
+    "typescript": "^4.6.3"
   },
   "dependencies": {
+    "@types/node": "^17.0.25",
+    "eslint-config-prettier": "^8.5.0",
     "foreground-child": "^2.0.0",
-    "minipass-fetch": "^1.4.1"
+    "node-fetch": "^3.2.3",
+    "opener": "^1.5.2"
   },
   "optionalDependencies": {
     "@tier.run/cli-darwin-amd64": "~0.0.0-0 || 0 || 1",
