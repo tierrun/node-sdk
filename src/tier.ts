@@ -23,7 +23,8 @@ const usage = (msg: string, er?: any) => {
   }
 }
 
-const topUsage = (er?: any) => usage(`tier: usage: tier [push|help|login]`, er)
+const topUsage = (er?: any) =>
+  usage(`tier: usage: tier [push|help|login|logout]`, er)
 const { TIER_URL = 'https://tier.run/' } = process.env
 process.env.TIER_URL = TIER_URL
 
@@ -37,8 +38,8 @@ const projectRootFiles = [
   'tsconfig.json',
 ]
 const projectDir = (
-  dir: string = process.cwd(),
   top: string = process.env.HOME || process.cwd(),
+  dir: string = process.cwd(),
   start?: string
 ): string | null => {
   const dn = dirname(dir)
@@ -57,7 +58,7 @@ const projectDir = (
     return dir
   }
 
-  return projectDir(dn, top, start || dir) || start || dir
+  return projectDir(top, dn, start || dir) || start || dir
 }
 
 const main = async (argv: string[]) => {
@@ -67,6 +68,10 @@ const main = async (argv: string[]) => {
 
   if (argv[2] === 'login') {
     return doLogin()
+  }
+
+  if (argv[2] === 'logout') {
+    return doLogout()
   }
 
   if (argv[2] === 'projectDir') {
@@ -82,8 +87,7 @@ const main = async (argv: string[]) => {
     try {
       // TODO: walk up until we find indications of a project, but no higher
       // than process.env.HOME
-      const dir = projectDir(process.cwd(), process.env.HOME || process.cwd())
-      tc = TierClient.fromCwd(process.cwd())
+      tc = TierClient.fromCwd(projectDir() || process.cwd())
     } catch (er) {
       console.error(er)
       process.exit(1)
@@ -102,7 +106,7 @@ const main = async (argv: string[]) => {
 
 const doLogin = async (): Promise<void> => {
   const { default: opener } = await import('opener')
-  const cwd = process.cwd()
+  const cwd = projectDir() || process.cwd()
   const tc = new TierClient({ baseUrl: TIER_URL, tierKey: '' })
   const authResponse = await tc.initLogin(cwd)
   const eres = authResponse as ErrorResponse
@@ -129,6 +133,11 @@ and enter it at: ${res.verification_uri}
 Waiting...`)
   }
   console.log(await tc.awaitLogin(cwd, res))
+}
+
+const doLogout = (): void => {
+  const cwd = projectDir() || process.cwd()
+  new TierClient({ baseUrl: TIER_URL, tierKey: '' }).logout(cwd)
 }
 
 const pushUsage = (er?: any) => usage(`usage: tier push <pricing.json>`, er)

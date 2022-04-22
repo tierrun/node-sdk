@@ -185,15 +185,27 @@ export class TierClient {
     baseUrl,
     tierKey,
     authStore = defaultAuthStore,
+    debug = process.env.TIER_DEBUG === '1' ||
+      /\btier\b/i.test(process.env.NODE_DEBUG || ''),
   }: {
     baseUrl: string
     tierKey: string
     authStore?: AuthStore
+    debug?: boolean
   }) {
     this.baseUrl = baseUrl
     this.tierKey = tierKey
     this.authStore = authStore
+    if (debug) {
+      this.debug = console.error
+    }
     this.clientID = ''
+  }
+
+  debug(...args: any[]): void {}
+
+  logout(cwd: string): void {
+    this.authStore.delete(cwd)
   }
 
   async initLogin(cwd: string): Promise<DeviceAuthorizationResponse> {
@@ -254,7 +266,7 @@ export class TierClient {
   }
 
   // all or nothing
-  authorize(h: HeadersInit | undefined): HeadersInit {
+  authorize(h: HeadersInit | undefined): Headers {
     if (this.tierKey) {
       const basic = Buffer.from(this.tierKey + ':').toString('base64')
       const authorization = `Basic ${basic}`
@@ -292,12 +304,12 @@ export class TierClient {
   }
 
   async getOK<T>(path: string): Promise<T> {
-    console.error(`GET ${path}`)
+    this.debug(`GET ${path}`)
     return await this.fetchOK<T>(path, { method: 'GET' })
   }
 
   async postFormOK<T>(path: string, body: { [key: string]: any }): Promise<T> {
-    console.error(`POST FORM ${path}`, body)
+    this.debug(`POST FORM ${path}`, body)
     return await this.fetchOK<T>(path, {
       method: 'POST',
       headers: {
@@ -308,7 +320,7 @@ export class TierClient {
   }
 
   async postOK<T>(path: string, body: { [key: string]: any }): Promise<T> {
-    console.error(`POST ${path}`, body)
+    this.debug(`POST ${path}`, body)
     return await this.fetchOK<T>(path, {
       method: 'POST',
       headers: {

@@ -16,8 +16,10 @@
   "scripts": {
     "prepare": "tsc",
     "format": "prettier --write . --loglevel warn",
-    "test": "tap",
-    "snap": "tap",
+    "test": "c8 tap test/*.ts",
+    "snap": "c8 tap test/*.ts",
+    "pretest": "tsc",
+    "presnap": "tsc",
     "preversion": "npm test",
     "postversion": "npm publish",
     "prepublishOnly": "git push origin --follow-tags"
@@ -39,10 +41,17 @@
     "/public/build"
   ],
   "tap": {
-    "check-coverage": true
+    "coverage": false,
+    "node-arg": [
+      "--loader",
+      "ts-node/esm"
+    ],
+    "ts": false
   },
   "devDependencies": {
     "@types/opener": "^1.4.0",
+    "@types/tap": "^15.0.6",
+    "c8": "^7.11.2",
     "mkdirp": "^1.0.4",
     "prettier": "^2.6.2",
     "tap": "^16.0.1",
@@ -54,7 +63,8 @@
     "eslint-config-prettier": "^8.5.0",
     "foreground-child": "^2.0.0",
     "node-fetch": "^3.2.3",
-    "opener": "^1.5.2"
+    "opener": "^1.5.2",
+    "ts-node": "^10.7.0"
   },
   "optionalDependencies": {
     "@tier.run/cli-darwin-amd64": "~0.0.0-0 || 0 || 1",
