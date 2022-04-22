@@ -108,6 +108,17 @@ const defaultAuthStore: AuthStore = {
   },
 }
 
+import nfPackage from 'node-fetch/package.json'
+const USER_AGENT = (() => {
+  const pj = readFileSync(resolve(__dirname, '../package.json'))
+  const pkg = JSON.parse(pj.toString('utf8'))
+  return `tier ${pkg.name}@${pkg.version} node-fetch/${
+    nfPackage.version
+  } node/${
+    process.version
+  }`
+})()
+
 export interface DeviceAuthorizationSuccessResponse {
   device_code: string
   user_code: string
@@ -283,6 +294,7 @@ export class TierClient {
   async fetchOK<T>(path: string, options: RequestInit): Promise<T> {
     const u = new URL(path, this.baseUrl)
     options.headers = this.authorize(options.headers)
+    options.headers.set('user-agent', USER_AGENT)
 
     const res = await fetch(String(u), options)
     if (!res.ok) {
