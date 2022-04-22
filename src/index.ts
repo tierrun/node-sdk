@@ -1,5 +1,5 @@
 import fetch, { HeadersInit, Headers, RequestInit } from 'node-fetch'
-import { randomUUID } from 'node:crypto'
+import { randomUUID } from 'crypto'
 
 export interface TierError extends Error {
   request: {
@@ -64,15 +64,15 @@ export interface AuthStore {
   [key: string]: any
 }
 
-import querystring from 'node:querystring'
+import querystring from 'querystring'
 const grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
 
 // TODO: abstract all login stuff into a TierClientCLI class, so that we're
 // not importing it where tierweb uses it.
 // store tokens in ~/.config/tier/tokens/${hash(cwd)}
-import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'node:fs'
-import { createHash } from 'node:crypto'
-import { resolve } from 'node:path'
+import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs'
+import { createHash } from 'crypto'
+import { resolve } from 'path'
 const hash = (str: string) => createHash('sha512').update(str).digest('hex')
 const defaultAuthStore: AuthStore = {
   get: cwd => {

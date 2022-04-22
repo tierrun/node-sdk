@@ -4,8 +4,8 @@
 
 import { TierClient } from './index.js'
 import type { ErrorResponse, DeviceAuthorizationSuccessResponse } from './index'
-import { readFileSync, existsSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { readFileSync, existsSync } from 'fs'
+import { dirname, resolve } from 'path'
 
 const usage = (msg: string, er?: any) => {
   if (er) {
