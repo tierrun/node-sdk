@@ -64,7 +64,7 @@ export interface AuthStore {
   [key: string]: any
 }
 
-import {encode} from 'querystring'
+import { encode } from 'querystring'
 const grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
 
 // TODO: abstract all login stuff into a TierClientCLI class, so that we're

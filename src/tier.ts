@@ -3,16 +3,46 @@
 // vim: ft=typescript
 
 import { TierClient } from './index.js'
-import type { ErrorResponse, DeviceAuthorizationSuccessResponse } from './index'
+import type {
+  TierError,
+  ErrorResponse,
+  DeviceAuthorizationSuccessResponse,
+} from './index.js'
 import { readFileSync, existsSync } from 'fs'
 import { dirname, resolve } from 'path'
+
+const cleanErr = (er: any): any => {
+  if (!er || typeof er !== 'object') {
+    return er
+  }
+  if (Array.isArray(er)) {
+    return er.map(v => cleanErr(v))
+  }
+  if (er && typeof er === 'object') {
+    for (const [k, v] of Object.entries(er)) {
+      if (k === 'authorization') {
+        er[k] = '{redacted}'
+      } else {
+        er[k] = cleanErr(v)
+      }
+    }
+  }
+  return er
+}
 
 const usage = (msg: string, er?: any) => {
   if (er) {
     console.error(msg)
     if (typeof er === 'object') {
       console.error('')
-      console.error(er)
+      const body = er?.response?.body
+      const h = er?.response?.headers
+      const ct = (h || {})['content-type'] || ''
+      if (typeof body === 'string' && ct.startsWith('application/json')) {
+        console.error(JSON.parse(body))
+      } else {
+        console.error(cleanErr(er))
+      }
     } else if (er !== true) {
       console.error('ERROR:', er)
     }
@@ -24,7 +54,7 @@ const usage = (msg: string, er?: any) => {
 }
 
 const topUsage = (er?: any) =>
-  usage(`tier: usage: tier [push|help|login|logout]`, er)
+  usage(`tier: usage: tier [push|pull|help|login|logout]`, er)
 const { TIER_URL = 'https://tier.run/' } = process.env
 process.env.TIER_URL = TIER_URL
 
@@ -97,6 +127,8 @@ const main = async (argv: string[]) => {
   switch (argv[2]) {
     case 'push':
       return doPush(tc, argv[3])
+    case 'pull':
+      return doPull(tc)
     case 'whoami':
       return whoami(tc)
     default:
@@ -145,6 +177,15 @@ const pushUsage = (er?: any) => usage(`usage: tier push <pricing.json>`, er)
 
 const whoami = async (tc: TierClient): Promise<void> => {
   console.log(await tc.ping())
+}
+
+const pullUsage = (er?: any) => usage(`usage: tier pull`, er)
+const doPull = async (tc: TierClient): Promise<void> => {
+  try {
+    console.log(JSON.stringify(await tc.pullModel(), null, 2))
+  } catch (er) {
+    pullUsage(er)
+  }
 }
 
 const doPush = async (

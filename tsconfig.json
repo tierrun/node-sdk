@@ -1,11 +1,6 @@
 {
-  "exclude": [
-    "./test",
-    "./tap-snapshots"
-  ],
-  "include": [
-    "src/**/*.ts"
-  ],
+  "exclude": ["./test", "./tap-snapshots"],
+  "include": ["src/**/*.ts"],
   "compilerOptions": {
     "declaration": true,
     "sourceMap": true,

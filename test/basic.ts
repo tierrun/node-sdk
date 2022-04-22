@@ -8,9 +8,13 @@ t.test('init from environment', async t => {
   const tc = TierClient.fromEnv()
   t.equal(tc.baseUrl, 'https://example.com')
   t.equal(tc.tierKey, 'deadbeefcafebad101')
-  const expectAuth = `Basic ${Buffer.from('deadbeefcafebad101:').toString('base64')}`
+  const expectAuth = `Basic ${Buffer.from('deadbeefcafebad101:').toString(
+    'base64'
+  )}`
   t.equal(
-    tc.authorize({ authorization: 'Otherthing foobarbaz' }).get('authorization'),
+    tc
+      .authorize({ authorization: 'Otherthing foobarbaz' })
+      .get('authorization'),
     expectAuth
   )
 })
