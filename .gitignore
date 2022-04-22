@@ -2,6 +2,7 @@
 /*
 /.*
 /lib
+!/tsconfig.json
 !/cli-packages
 !/bin
 !/src
