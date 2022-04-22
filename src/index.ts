@@ -1,6 +1,9 @@
 import fetch, { HeadersInit, Headers, RequestInit } from 'node-fetch'
 import { randomUUID } from 'crypto'
 
+// TODO: handle refresh_token flow, right now we just delete
+// automatically when the key expires
+
 export interface TierError extends Error {
   request: {
     method?: string
@@ -58,8 +61,8 @@ export interface StripeOptions {
 }
 
 export interface AuthStore {
-  get: (cwd: string) => string | undefined
-  set: (cwd: string, token: string) => any
+  get: (cwd: string) => DeviceAccessTokenSuccessResponse | undefined
+  set: (cwd: string, token: DeviceAccessTokenSuccessResponse) => any
   delete: (cwd: string) => any
   [key: string]: any
 }
@@ -70,22 +73,71 @@ const grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
 // TODO: abstract all login stuff into a TierClientCLI class, so that we're
 // not importing it where tierweb uses it.
 // store tokens in ~/.config/tier/tokens/${hash(cwd)}
-import { readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs'
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  unlinkSync,
+  lstatSync,
+} from 'fs'
+
 import { createHash } from 'crypto'
 import { resolve } from 'path'
+
 const hash = (str: string) => createHash('sha512').update(str).digest('hex')
+
 const defaultAuthStore: AuthStore = {
+  debug:
+    /\btier\b/.test(process.env.NODE_DEBUG || '') ||
+    process.env.TIER_DEBUG === '1',
+
   get: cwd => {
     if (!process.env.HOME) {
       throw new Error('no $HOME directory set')
     }
+
     const h = hash(cwd)
     const file = resolve(process.env.HOME, '.config/tier/tokens', h)
+
     try {
-      return readFileSync(file, 'utf8')
-    } catch (_) {}
+      const st = lstatSync(file)
+      // immediately stop trusting it if it smells funny.
+      if (!st.isFile() || (st.mode & 0o777) !== 0o600 || st.nlink !== 1) {
+        throw new Error('invalid token store file type')
+      }
+      const record = JSON.parse(readFileSync(file, 'utf8'))
+      if (!Array.isArray(record) || record.length !== 3) {
+        throw new Error('token file invalid')
+      }
+      const [token, born, sig] = record
+      // not security really, just fs corruption defense
+      if (sig !== hash(JSON.stringify([token, born]))) {
+        throw new Error('token file corrupted')
+      }
+      if (token.expires_in) {
+        const now = Date.now()
+        if (now > born + token.expires_in * 1000) {
+          throw new Error('token expired')
+          return
+        }
+      }
+      return token
+    } catch (er) {
+      if (defaultAuthStore.debug) {
+        console.error(
+          cwd,
+          (er &&
+            typeof er === 'object' &&
+            er instanceof Error &&
+            er?.message) ||
+            er
+        )
+      }
+      defaultAuthStore.delete(cwd)
+    }
   },
-  set: (cwd, token) => {
+
+  set: (cwd, token: DeviceAccessTokenSuccessResponse) => {
     if (!process.env.HOME) {
       throw new Error('no $HOME directory set')
     }
@@ -93,8 +145,19 @@ const defaultAuthStore: AuthStore = {
     const root = resolve(process.env.HOME, '.config/tier/tokens')
     const file = resolve(root, h)
     mkdirSync(root, { recursive: true, mode: 0o700 })
-    writeFileSync(file, token)
+    const born = Date.now()
+    const sig = hash(JSON.stringify([token, born]))
+    if (defaultAuthStore.debug) {
+      const { access_token, refresh_token, ...redacted } = token
+      Object.assign(redacted as DeviceAccessTokenSuccessResponse, {
+        access_token: '(redacted)',
+        refresh_token: '(redacted)',
+      })
+      console.error('WRITE TOKEN FILE', file, [redacted, born, sig])
+    }
+    writeFileSync(file, JSON.stringify([token, born, sig]), { mode: 0o600 })
   },
+
   delete: cwd => {
     if (!process.env.HOME) {
       throw new Error('no $HOME directory set')
@@ -104,7 +167,15 @@ const defaultAuthStore: AuthStore = {
     const file = resolve(root, h)
     try {
       unlinkSync(file)
-    } catch (_) {}
+    } catch (er) {
+      if (
+        !er ||
+        typeof er !== 'object' ||
+        (er as { code?: string })?.code !== 'ENOENT'
+      ) {
+        throw er
+      }
+    }
   },
 }
 
@@ -112,11 +183,7 @@ import nfPackage from 'node-fetch/package.json'
 const USER_AGENT = (() => {
   const pj = readFileSync(resolve(__dirname, '../package.json'))
   const pkg = JSON.parse(pj.toString('utf8'))
-  return `tier ${pkg.name}@${pkg.version} node-fetch/${
-    nfPackage.version
-  } node/${
-    process.version
-  }`
+  return `tier ${pkg.name}@${pkg.version} node-fetch/${nfPackage.version} node/${process.version}`
 })()
 
 export interface DeviceAuthorizationSuccessResponse {
@@ -156,9 +223,14 @@ export type Schedule = any // TODO
 
 const wait = async (n: number) => await new Promise(r => setTimeout(r, n))
 
+const toBasic = (key:string) =>
+  `Basic ${Buffer.from(encodeURIComponent(key) + ':').toString('base64')}`
+const toBearer = (key:string) => `Bearer ${key}`
+
 export class TierClient {
   baseUrl: string
   tierKey: string
+  authType: string
   clientID: string
   authStore: AuthStore
 
@@ -167,14 +239,18 @@ export class TierClient {
       throw new Error('must set TIER_URL in environment')
     }
     const { authStore = defaultAuthStore } = options
-    const tierKey = authStore.get(cwd)
-    if (!tierKey) {
+    const token = authStore.get(cwd)
+    if (!token || !token.access_token) {
       throw new Error('please run: tier login')
+    }
+    if (token.token_type !== 'basic' && token.token_type !== 'bearer') {
+      throw new Error('unsupported auth type: ' + token.token_type)
     }
     return new TierClient({
       ...options,
       baseUrl: process.env.TIER_URL,
-      tierKey,
+      tierKey: token.access_token,
+      authType: token.token_type,
     })
   }
 
@@ -185,27 +261,35 @@ export class TierClient {
     if (process.env.TIER_KEY === undefined) {
       throw new Error('must set TIER_KEY in environment')
     }
+    const authType = process.env.TIER_AUTH_TYPE || 'basic'
+    if (authType !== 'basic' && authType !== 'bearer') {
+      throw new Error('unsupported auth type: ' + authType)
+    }
     return new TierClient({
       ...options,
       baseUrl: process.env.TIER_URL,
       tierKey: process.env.TIER_KEY,
+      authType,
     })
   }
 
   constructor({
     baseUrl,
     tierKey,
+    authType,
     authStore = defaultAuthStore,
     debug = process.env.TIER_DEBUG === '1' ||
       /\btier\b/i.test(process.env.NODE_DEBUG || ''),
   }: {
     baseUrl: string
     tierKey: string
+    authType?: 'basic' | 'bearer'
     authStore?: AuthStore
     debug?: boolean
   }) {
     this.baseUrl = baseUrl
     this.tierKey = tierKey
+    this.authType = authType || 'basic'
     this.authStore = authStore
     if (debug) {
       this.debug = console.error
@@ -256,10 +340,15 @@ export class TierClient {
     })
 
     const { error } = res as { error?: string }
-    if (!error && (res as DeviceAccessTokenSuccessResponse).access_token) {
+    const success = res as DeviceAccessTokenSuccessResponse
+    if (!error && success.access_token) {
+      const { token_type } = success
+      if (token_type !== 'basic' && token_type !== 'bearer') {
+        throw new Error('Received unsupported token type: ' + token_type)
+      }
       // auth success
       this.clientID = ''
-      this.authStore.set(cwd, res.access_token)
+      this.authStore.set(cwd, success)
       return res
     }
 
@@ -279,10 +368,13 @@ export class TierClient {
   // all or nothing
   authorize(h: HeadersInit | undefined): Headers {
     if (this.tierKey) {
-      const basic = Buffer.from(this.tierKey + ':').toString('base64')
-      const authorization = `Basic ${basic}`
       const withAuth = new Headers(h)
-      withAuth.set('authorization', authorization)
+      withAuth.set(
+        'authorization',
+        this.authType === 'basic'
+          ? toBasic(this.tierKey)
+          : toBearer(this.tierKey)
+      )
       return withAuth
     } else {
       const withoutAuth = new Headers(h)
