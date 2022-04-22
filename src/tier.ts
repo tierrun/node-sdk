@@ -132,7 +132,8 @@ and enter it at: ${res.verification_uri}
 
 Waiting...`)
   }
-  console.log(await tc.awaitLogin(cwd, res))
+  await tc.awaitLogin(cwd, res)
+  console.log(`Logged into tier!\nproject: ${cwd}`)
 }
 
 const doLogout = (): void => {
