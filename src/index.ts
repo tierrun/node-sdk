@@ -97,9 +97,9 @@ export interface StripeOptions {
 }
 
 export interface AuthStore {
-  get: (cwd: string) => DeviceAccessTokenSuccessResponse | undefined
-  set: (cwd: string, token: DeviceAccessTokenSuccessResponse) => any
-  delete: (cwd: string) => any
+  get: (cwd: string, baseUrl: string) => DeviceAccessTokenSuccessResponse | undefined
+  set: (cwd: string, baseUrl: string, token: DeviceAccessTokenSuccessResponse) => any
+  delete: (cwd: string, baseUrl: string) => any
   [key: string]: any
 }
 
@@ -127,12 +127,12 @@ const defaultAuthStore: AuthStore = {
     /\btier\b/.test(process.env.NODE_DEBUG || '') ||
     process.env.TIER_DEBUG === '1',
 
-  get: cwd => {
+  get: (cwd, baseUrl) => {
     if (!process.env.HOME) {
       throw new Error('no $HOME directory set')
     }
 
-    const h = hash(cwd)
+    const h = hash(hash(cwd) + hash(baseUrl))
     const file = resolve(process.env.HOME, '.config/tier/tokens', h)
 
     try {
@@ -142,20 +142,27 @@ const defaultAuthStore: AuthStore = {
         throw new Error('invalid token store file type')
       }
       const record = JSON.parse(readFileSync(file, 'utf8'))
-      if (!Array.isArray(record) || record.length !== 3) {
+      if (!Array.isArray(record) || record.length !== 4) {
         throw new Error('token file invalid')
       }
-      const [token, born, sig] = record
+      const [token, born, url, sig] = record
+      if (url !== baseUrl) {
+        throw new Error('token file invalid host')
+      }
       // not security really, just fs corruption defense
-      if (sig !== hash(JSON.stringify([token, born]))) {
+      if (sig !== hash(JSON.stringify([token, born, url]))) {
         throw new Error('token file corrupted')
       }
       if (token.expires_in) {
+        // TODO: refresh_token flow?  would need to expose this case somehow,
+        // rather than just deleting the record.
         const now = Date.now()
         if (now > born + token.expires_in * 1000) {
           throw new Error('token expired')
-          return
         }
+      }
+      if (!token.access_token) {
+        throw new Error('no access_token found in record')
       }
       return token
     } catch (er) {
@@ -169,36 +176,37 @@ const defaultAuthStore: AuthStore = {
             er
         )
       }
-      defaultAuthStore.delete(cwd)
+      defaultAuthStore.delete(cwd, baseUrl)
     }
   },
 
-  set: (cwd, token: DeviceAccessTokenSuccessResponse) => {
+  set: (cwd, baseUrl, token) => {
     if (!process.env.HOME) {
       throw new Error('no $HOME directory set')
     }
-    const h = hash(cwd)
+    const h = hash(hash(cwd) + hash(baseUrl))
     const root = resolve(process.env.HOME, '.config/tier/tokens')
     const file = resolve(root, h)
     mkdirSync(root, { recursive: true, mode: 0o700 })
     const born = Date.now()
-    const sig = hash(JSON.stringify([token, born]))
+    const sig = hash(JSON.stringify([token, born, baseUrl]))
     if (defaultAuthStore.debug) {
       const { access_token, refresh_token, ...redacted } = token
       Object.assign(redacted as DeviceAccessTokenSuccessResponse, {
         access_token: '(redacted)',
         refresh_token: '(redacted)',
       })
-      console.error('WRITE TOKEN FILE', file, [redacted, born, sig])
+      console.error('WRITE TOKEN FILE', file, [redacted, born, baseUrl, sig])
     }
-    writeFileSync(file, JSON.stringify([token, born, sig]), { mode: 0o600 })
+    const j = JSON.stringify([token, born, baseUrl, sig])
+    writeFileSync(file, j, { mode: 0o600 })
   },
 
-  delete: cwd => {
+  delete: (cwd, baseUrl) => {
     if (!process.env.HOME) {
       throw new Error('no $HOME directory set')
     }
-    const h = hash(cwd)
+    const h = hash(hash(cwd) + hash(baseUrl))
     const root = resolve(process.env.HOME, '.config/tier/tokens')
     const file = resolve(root, h)
     try {
@@ -275,7 +283,7 @@ export class TierClient {
       throw new Error('must set TIER_URL in environment')
     }
     const { authStore = defaultAuthStore } = options
-    const token = authStore.get(cwd)
+    const token = authStore.get(cwd, options.tierUrl)
     if (!token || !token.access_token) {
       throw new Error('please run: tier login')
     }
@@ -336,7 +344,7 @@ export class TierClient {
   debug(...args: any[]): void {}
 
   logout(cwd: string): void {
-    this.authStore.delete(cwd)
+    this.authStore.delete(cwd, this.baseUrl)
   }
 
   async initLogin(cwd: string): Promise<DeviceAuthorizationResponse> {
@@ -384,7 +392,7 @@ export class TierClient {
       }
       // auth success
       this.clientID = ''
-      this.authStore.set(cwd, success)
+      this.authStore.set(cwd, this.baseUrl, success)
       return res
     }
 
