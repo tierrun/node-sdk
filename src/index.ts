@@ -268,7 +268,7 @@ export type Schedule = any // TODO
 const wait = async (n: number) => await new Promise(r => setTimeout(r, n))
 
 const toBasic = (key:string) =>
-  `Basic ${Buffer.from(encodeURIComponent(key) + ':').toString('base64')}`
+  `Basic ${Buffer.from(key + ':').toString('base64')}`
 const toBearer = (key:string) => `Bearer ${key}`
 
 export class TierClient {
