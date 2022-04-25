@@ -4,17 +4,53 @@ import { randomUUID } from 'crypto'
 // TODO: handle refresh_token flow, right now we just delete
 // automatically when the key expires
 
-export interface TierError extends Error {
-  request: {
-    method?: string
-    path: string
-    baseUrl: string
-    headers: { [k: string]: any }
+interface TierErrorRequest {
+  method?: string
+  path: string
+  baseUrl: string
+  headers: { [k: string]: any }
+}
+const isTierErrorRequest = (raw: unknown): raw is TierErrorRequest => {
+  const req = raw as TierErrorRequest
+  return !!req && typeof req === 'object' &&
+    typeof req.baseUrl === 'string' &&
+    typeof req.method === 'string' &&
+    typeof req.path === 'string' &&
+    !!req.headers && typeof req.headers === 'object'
+}
+
+interface TierErrorResponse {
+  status: number
+  headers: { [k: string]: any }
+  body: string
+}
+const isTierErrorResponse = (raw: unknown): raw is TierErrorResponse => {
+  const res = raw as TierErrorResponse
+  return !!res && typeof res === 'object' &&
+    typeof res.status === 'number' &&
+    !!res.headers && typeof res.headers === 'object' &&
+    typeof res.body === 'string'
+}
+
+export class TierError extends Error {
+  request: TierErrorRequest
+  response?: TierErrorResponse
+
+  constructor (
+    message: string,
+    request: TierErrorRequest,
+    response?: TierErrorResponse
+  ) {
+    super('tier request failed')
+    this.request = request
+    this.response = response
   }
-  response: {
-    status: number
-    headers: { [k: string]: any }
-    body: string
+
+  is (raw: unknown): raw is TierError {
+    const er = raw as TierError
+    return !!er && typeof er === 'object' && er instanceof Error &&
+      isTierErrorRequest(er.request) &&
+      (er.response === undefined || isTierErrorResponse(er.response))
   }
 }
 
@@ -388,20 +424,27 @@ export class TierClient {
     options.headers = this.authorize(options.headers)
     options.headers.set('user-agent', USER_AGENT)
 
+    const reqForError = () => ({
+      method: options.method,
+      path,
+      baseUrl: this.baseUrl,
+      headers: Object.fromEntries(new Headers(options.headers).entries()),
+    })
+
     const res = await fetch(String(u), options)
+      .catch(er => {
+        if (er && typeof er === 'object' && er instanceof Error) {
+          const msg = er.message || 'tier fetch failed'
+          throw new TierError(msg, reqForError())
+        } else {
+          throw er
+        }
+      })
     if (!res.ok) {
-      throw Object.assign(new Error('tier fetch failed'), {
-        request: {
-          method: options.method,
-          path,
-          baseUrl: this.baseUrl,
-          headers: Object.fromEntries(new Headers(options.headers).entries()),
-        },
-        response: {
-          status: res.status,
-          headers: Object.fromEntries(res.headers.entries()),
-          body: await res.text(),
-        },
+      throw new TierError('tier fetch failed', reqForError(), {
+        status: res.status,
+        headers: Object.fromEntries(res.headers.entries()),
+        body: await res.text(),
       })
     }
     return (await res.json()) as T
