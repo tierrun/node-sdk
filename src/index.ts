@@ -46,9 +46,9 @@ export class TierError extends Error {
     this.response = response
   }
 
-  is (raw: unknown): raw is TierError {
+  static is (raw: unknown): raw is TierError {
     const er = raw as TierError
-    return !!er && typeof er === 'object' && er instanceof Error &&
+    return !!er && typeof er === 'object' && er instanceof TierError &&
       isTierErrorRequest(er.request) &&
       (er.response === undefined || isTierErrorResponse(er.response))
   }
