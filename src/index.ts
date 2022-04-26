@@ -12,11 +12,15 @@ interface TierErrorRequest {
 }
 const isTierErrorRequest = (raw: unknown): raw is TierErrorRequest => {
   const req = raw as TierErrorRequest
-  return !!req && typeof req === 'object' &&
+  return (
+    !!req &&
+    typeof req === 'object' &&
     typeof req.baseUrl === 'string' &&
     typeof req.method === 'string' &&
     typeof req.path === 'string' &&
-    !!req.headers && typeof req.headers === 'object'
+    !!req.headers &&
+    typeof req.headers === 'object'
+  )
 }
 
 interface TierErrorResponse {
@@ -26,17 +30,21 @@ interface TierErrorResponse {
 }
 const isTierErrorResponse = (raw: unknown): raw is TierErrorResponse => {
   const res = raw as TierErrorResponse
-  return !!res && typeof res === 'object' &&
+  return (
+    !!res &&
+    typeof res === 'object' &&
     typeof res.status === 'number' &&
-    !!res.headers && typeof res.headers === 'object' &&
+    !!res.headers &&
+    typeof res.headers === 'object' &&
     typeof res.body === 'string'
+  )
 }
 
 export class TierError extends Error {
   request: TierErrorRequest
   response?: TierErrorResponse
 
-  constructor (
+  constructor(
     message: string,
     request: TierErrorRequest,
     response?: TierErrorResponse
@@ -46,11 +54,15 @@ export class TierError extends Error {
     this.response = response
   }
 
-  static is (raw: unknown): raw is TierError {
+  static is(raw: unknown): raw is TierError {
     const er = raw as TierError
-    return !!er && typeof er === 'object' && er instanceof TierError &&
+    return (
+      !!er &&
+      typeof er === 'object' &&
+      er instanceof TierError &&
       isTierErrorRequest(er.request) &&
       (er.response === undefined || isTierErrorResponse(er.response))
+    )
   }
 }
 
@@ -97,8 +109,15 @@ export interface StripeOptions {
 }
 
 export interface AuthStore {
-  get: (cwd: string, baseUrl: string) => DeviceAccessTokenSuccessResponse | undefined
-  set: (cwd: string, baseUrl: string, token: DeviceAccessTokenSuccessResponse) => any
+  get: (
+    cwd: string,
+    baseUrl: string
+  ) => DeviceAccessTokenSuccessResponse | undefined
+  set: (
+    cwd: string,
+    baseUrl: string,
+    token: DeviceAccessTokenSuccessResponse
+  ) => any
   delete: (cwd: string, baseUrl: string) => any
   [key: string]: any
 }
@@ -167,14 +186,14 @@ const defaultAuthStore: AuthStore = {
       return token
     } catch (er) {
       if (defaultAuthStore.debug) {
-        console.error(
-          cwd,
+        const m =
           (er &&
             typeof er === 'object' &&
             er instanceof Error &&
             er?.message) ||
-            er
-        )
+          er
+
+        console.error(cwd, m)
       }
       defaultAuthStore.delete(cwd, baseUrl)
     }
@@ -267,9 +286,9 @@ export type Schedule = any // TODO
 
 const wait = async (n: number) => await new Promise(r => setTimeout(r, n))
 
-const toBasic = (key:string) =>
+const toBasic = (key: string) =>
   `Basic ${Buffer.from(key + ':').toString('base64')}`
-const toBearer = (key:string) => `Bearer ${key}`
+const toBearer = (key: string) => `Bearer ${key}`
 
 export class TierClient {
   baseUrl: string
@@ -279,11 +298,12 @@ export class TierClient {
   authStore: AuthStore
 
   static fromCwd(cwd: string, options: { [k: string]: any } = {}): TierClient {
-    if (process.env.TIER_URL === undefined) {
-      throw new Error('must set TIER_URL in environment')
+    const { authStore = defaultAuthStore, baseUrl = process.env.TIER_URL } =
+      options
+    if (baseUrl === undefined) {
+      throw new Error('must set TIER_URL in environment or baseUrl in options')
     }
-    const { authStore = defaultAuthStore } = options
-    const token = authStore.get(cwd, options.tierUrl)
+    const token = authStore.get(cwd, baseUrl)
     if (!token || !token.access_token) {
       throw new Error('please run: tier login')
     }
@@ -292,7 +312,7 @@ export class TierClient {
     }
     return new TierClient({
       ...options,
-      baseUrl: process.env.TIER_URL,
+      baseUrl: baseUrl,
       tierKey: token.access_token,
       authType: token.token_type,
     })
@@ -436,18 +456,22 @@ export class TierClient {
       method: options.method,
       path,
       baseUrl: this.baseUrl,
-      headers: Object.fromEntries(new Headers(options.headers).entries()),
+      headers: Object.fromEntries(
+        [...new Headers(options.headers).entries()].map(([k, v]) => [
+          k,
+          k === 'authorization' ? '(redacted)' : v,
+        ])
+      ),
     })
 
-    const res = await fetch(String(u), options)
-      .catch(er => {
-        if (er && typeof er === 'object' && er instanceof Error) {
-          const msg = er.message || 'tier fetch failed'
-          throw new TierError(msg, reqForError())
-        } else {
-          throw er
-        }
-      })
+    const res = await fetch(String(u), options).catch(er => {
+      if (er && typeof er === 'object' && er instanceof Error) {
+        const msg = er.message || 'tier fetch failed'
+        throw new TierError(msg, reqForError())
+      } else {
+        throw er
+      }
+    })
     if (!res.ok) {
       throw new TierError('tier fetch failed', reqForError(), {
         status: res.status,
@@ -509,7 +533,9 @@ export class TierClient {
   }
 
   async stripeOptions(org: OrgName): Promise<StripeOptions> {
-    return await this.postOK<StripeOptions>('/api/v1/stripe/options', { org })
+    return await this.postOK<StripeOptions>('/api/v1/stripe/options', {
+      org,
+    })
   }
 
   async appendPhase(
