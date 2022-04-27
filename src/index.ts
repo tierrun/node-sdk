@@ -451,6 +451,7 @@ export class TierClient {
     const u = new URL(path, this.baseUrl)
     options.headers = this.authorize(options.headers)
     options.headers.set('user-agent', USER_AGENT)
+    options.headers.set('accept', 'application/json')
 
     const reqForError = () => ({
       method: options.method,
