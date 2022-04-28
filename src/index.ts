@@ -49,7 +49,7 @@ export class TierError extends Error {
     request: TierErrorRequest,
     response?: TierErrorResponse
   ) {
-    super('tier request failed')
+    super(message || 'tier fetch failed')
     this.request = request
     this.response = response
   }
@@ -468,6 +468,7 @@ export class TierClient {
     const res = await fetch(String(u), options).catch(er => {
       if (er && typeof er === 'object' && er instanceof Error) {
         const msg = er.message || 'tier fetch failed'
+        this.debug('fetch error, no response', er)
         throw new TierError(msg, reqForError())
       } else {
         throw er
