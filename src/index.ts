@@ -39,22 +39,6 @@ const isTierErrorResponse = (raw: unknown): raw is TierErrorResponse => {
   )
 }
 
-const tierUrl = (
-  path: string,
-  apiUrl: string,
-  webUrl: string | undefined
-): string => {
-  const base = /^\/api\/v1\//.test(path)
-    ? apiUrl
-    : /^\/auth\//.test(path)
-    ? webUrl
-    : null
-  if (!base) {
-    throw new Error(`invalid path: ${path}`)
-  }
-  return String(new URL(path, base))
-}
-
 export class TierError extends Error {
   request: TierErrorRequest
   response?: TierErrorResponse
@@ -518,6 +502,19 @@ export class TierClient {
     this.clientID = ''
   }
 
+  // validate that a path is allowed, and pick the host to send it to
+  tierUrl (path: string): string {
+    const base = /^\/api\/v1\//.test(path)
+      ? this.apiUrl
+      : /^\/auth\//.test(path)
+      ? this.webUrl
+      : null
+    if (!base) {
+      throw new Error(`invalid path: ${path}`)
+    }
+    return String(new URL(path, base))
+  }
+
   debug(...args: any[]): void {}
 
   logout(cwd: string): void {
@@ -605,7 +602,7 @@ export class TierClient {
   }
 
   async fetchOK<T>(path: string, options: RequestInit): Promise<T> {
-    const url = tierUrl(path, this.apiUrl, this.webUrl)
+    const url = this.tierUrl(path)
     options.headers = this.authorize(options.headers)
     options.headers.set('user-agent', USER_AGENT)
     options.headers.set('accept', 'application/json')
