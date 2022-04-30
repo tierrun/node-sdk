@@ -55,8 +55,6 @@ const usage = (msg: string, er?: any) => {
 
 const topUsage = (er?: any) =>
   usage(`tier: usage: tier [push|pull|help|login|logout]`, er)
-const { TIER_URL = 'https://tier.run/' } = process.env
-process.env.TIER_URL = TIER_URL
 
 const projectRootFiles = [
   '.git',
@@ -139,7 +137,7 @@ const main = async (argv: string[]) => {
 const doLogin = async (): Promise<void> => {
   const { default: opener } = await import('opener')
   const cwd = projectDir() || process.cwd()
-  const tc = new TierClient({ baseUrl: TIER_URL, tierKey: '' })
+  const tc = TierClient.fromEnv({ tierKey: TierClient.NO_AUTH })
   const authResponse = await tc.initLogin(cwd)
   const eres = authResponse as ErrorResponse
   if (eres.error) {
@@ -170,7 +168,7 @@ Waiting...`)
 
 const doLogout = (): void => {
   const cwd = projectDir() || process.cwd()
-  new TierClient({ baseUrl: TIER_URL, tierKey: '' }).logout(cwd)
+  TierClient.fromEnv({ tierKey: TierClient.NO_AUTH }).logout(cwd)
 }
 
 const pushUsage = (er?: any) => usage(`usage: tier push <pricing.json>`, er)

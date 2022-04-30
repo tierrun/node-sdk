@@ -5,19 +5,18 @@ import { randomUUID } from 'crypto'
 // automatically when the key expires
 
 interface TierErrorRequest {
-  method?: string
-  path: string
-  baseUrl: string
+  method: string
+  url: string
   headers: { [k: string]: any }
+  body?: any
 }
 const isTierErrorRequest = (raw: unknown): raw is TierErrorRequest => {
   const req = raw as TierErrorRequest
   return (
     !!req &&
     typeof req === 'object' &&
-    typeof req.baseUrl === 'string' &&
     typeof req.method === 'string' &&
-    typeof req.path === 'string' &&
+    typeof req.url === 'string' &&
     !!req.headers &&
     typeof req.headers === 'object'
   )
@@ -38,6 +37,22 @@ const isTierErrorResponse = (raw: unknown): raw is TierErrorResponse => {
     typeof res.headers === 'object' &&
     typeof res.body === 'string'
   )
+}
+
+const tierUrl = (
+  path: string,
+  apiUrl: string,
+  webUrl: string | undefined
+): string => {
+  const base = /^\/api\/v1\//.test(path)
+    ? apiUrl
+    : /^\/auth\//.test(path)
+    ? webUrl
+    : null
+  if (!base) {
+    throw new Error(`invalid path: ${path}`)
+  }
+  return String(new URL(path, base))
 }
 
 export class TierError extends Error {
@@ -111,14 +126,14 @@ export interface StripeOptions {
 export interface AuthStore {
   get: (
     cwd: string,
-    baseUrl: string
+    apiUrl: string
   ) => DeviceAccessTokenSuccessResponse | undefined
   set: (
     cwd: string,
-    baseUrl: string,
+    apiUrl: string,
     token: DeviceAccessTokenSuccessResponse
   ) => any
-  delete: (cwd: string, baseUrl: string) => any
+  delete: (cwd: string, apiUrl: string) => any
   [key: string]: any
 }
 
@@ -146,13 +161,19 @@ const defaultAuthStore: AuthStore = {
     /\btier\b/.test(process.env.NODE_DEBUG || '') ||
     process.env.TIER_DEBUG === '1',
 
-  get: (cwd, baseUrl) => {
+  get: (cwd, apiUrl) => {
+    if (defaultAuthStore.debug) {
+      console.error('get token', { cwd, apiUrl })
+    }
     if (!process.env.HOME) {
       throw new Error('no $HOME directory set')
     }
 
-    const h = hash(hash(cwd) + hash(baseUrl))
+    const h = hash(hash(cwd) + hash(apiUrl))
     const file = resolve(process.env.HOME, '.config/tier/tokens', h)
+    if (defaultAuthStore.debug) {
+      console.error('file', file)
+    }
 
     try {
       const st = lstatSync(file)
@@ -165,7 +186,7 @@ const defaultAuthStore: AuthStore = {
         throw new Error('token file invalid')
       }
       const [token, born, url, sig] = record
-      if (url !== baseUrl) {
+      if (url !== apiUrl) {
         throw new Error('token file invalid host')
       }
       // not security really, just fs corruption defense
@@ -195,37 +216,37 @@ const defaultAuthStore: AuthStore = {
 
         console.error(cwd, m)
       }
-      defaultAuthStore.delete(cwd, baseUrl)
+      defaultAuthStore.delete(cwd, apiUrl)
     }
   },
 
-  set: (cwd, baseUrl, token) => {
+  set: (cwd, apiUrl, token) => {
     if (!process.env.HOME) {
       throw new Error('no $HOME directory set')
     }
-    const h = hash(hash(cwd) + hash(baseUrl))
+    const h = hash(hash(cwd) + hash(apiUrl))
     const root = resolve(process.env.HOME, '.config/tier/tokens')
     const file = resolve(root, h)
     mkdirSync(root, { recursive: true, mode: 0o700 })
     const born = Date.now()
-    const sig = hash(JSON.stringify([token, born, baseUrl]))
+    const sig = hash(JSON.stringify([token, born, apiUrl]))
     if (defaultAuthStore.debug) {
       const { access_token, refresh_token, ...redacted } = token
       Object.assign(redacted as DeviceAccessTokenSuccessResponse, {
         access_token: '(redacted)',
         refresh_token: '(redacted)',
       })
-      console.error('WRITE TOKEN FILE', file, [redacted, born, baseUrl, sig])
+      console.error('WRITE TOKEN FILE', file, [redacted, born, apiUrl, sig])
     }
-    const j = JSON.stringify([token, born, baseUrl, sig])
+    const j = JSON.stringify([token, born, apiUrl, sig])
     writeFileSync(file, j, { mode: 0o600 })
   },
 
-  delete: (cwd, baseUrl) => {
+  delete: (cwd, apiUrl) => {
     if (!process.env.HOME) {
       throw new Error('no $HOME directory set')
     }
-    const h = hash(hash(cwd) + hash(baseUrl))
+    const h = hash(hash(cwd) + hash(apiUrl))
     const root = resolve(process.env.HOME, '.config/tier/tokens')
     const file = resolve(root, h)
     try {
@@ -290,70 +311,185 @@ const toBasic = (key: string) =>
   `Basic ${Buffer.from(key + ':').toString('base64')}`
 const toBearer = (key: string) => `Bearer ${key}`
 
-export class TierClient {
-  baseUrl: string
+enum AuthType {
+  BASIC = 'basic',
+  BEARER = 'bearer',
+}
+
+const isAuthType = (at: any): at is AuthType =>
+  typeof at === 'string' && (at === AuthType.BASIC || at === AuthType.BEARER)
+
+const DEFAULT_TIER_API_URL = 'https://api.tier.run/'
+const DEFAULT_TIER_WEB_URL = 'https://tier.run/'
+const DEFAULT_TIER_AUTH_TYPE = AuthType.BASIC
+
+type MaybeSettings = {
+  apiUrl?: string | undefined
+  webUrl?: string | undefined
+  authType?: string | undefined
+  tierKey?: string | undefined
+  authStore?: AuthStore
+  debug?: boolean
+  [k: string]: any
+}
+
+type Settings = {
+  apiUrl: string
+  webUrl: string | undefined
+  authType: AuthType
   tierKey: string
-  authType: string
+  authStore: AuthStore
+  debug: boolean
+  [k: string]: any
+}
+
+const getEnvSettings = (): MaybeSettings => {
+  const {
+    TIER_DEBUG,
+    NODE_DEBUG,
+    TIER_KEY,
+    TIER_API_URL,
+    TIER_WEB_URL,
+    TIER_AUTH_TYPE,
+  } = process.env
+  return {
+    apiUrl: TIER_API_URL,
+    webUrl: TIER_WEB_URL,
+    authType: TIER_AUTH_TYPE,
+    tierKey: TIER_KEY,
+    authStore: defaultAuthStore,
+    debug: TIER_DEBUG === '1' || /\btier\b/i.test(NODE_DEBUG || ''),
+  }
+}
+
+const settingsOrEnv = ({
+  tierKey,
+  apiUrl,
+  webUrl,
+  authType,
+  authStore,
+  debug,
+  ...settings
+}: MaybeSettings): Settings => {
+  const fromEnv = getEnvSettings()
+  return validSettings({
+    apiUrl: apiUrl || fromEnv.apiUrl,
+    webUrl: webUrl || fromEnv.webUrl,
+    authType: authType || fromEnv.authType,
+    tierKey: tierKey || fromEnv.tierKey,
+    authStore: authStore || defaultAuthStore,
+    debug: debug === undefined ? fromEnv.debug : debug,
+    ...settings,
+  })
+}
+
+const validAuthType = (tokenType: string | undefined): AuthType => {
+  switch (tokenType) {
+    case undefined:
+      return DEFAULT_TIER_AUTH_TYPE
+    case AuthType.BEARER:
+    case AuthType.BASIC:
+      return tokenType
+    default:
+      throw new Error(
+        `Unsupported auth type: '${tokenType}'. Must be 'basic' or 'bearer'`
+      )
+  }
+}
+
+const validSettings = ({
+  authStore = defaultAuthStore,
+  tierKey,
+  apiUrl,
+  webUrl,
+  authType,
+  debug = false,
+  ...settings
+}: MaybeSettings): Settings => {
+  if (!tierKey) {
+    throw new Error('must provide tierKey in options or env.TIER_KEY')
+  }
+
+  // api not set, or set to the public default, use defaults
+  if (!apiUrl || apiUrl === DEFAULT_TIER_API_URL) {
+    return {
+      apiUrl: DEFAULT_TIER_API_URL,
+      webUrl: DEFAULT_TIER_WEB_URL,
+      authType: validAuthType(authType),
+      tierKey,
+      authStore,
+      debug,
+      ...settings,
+    }
+  }
+
+  // don't use default auth url if apiUrl changed
+  if (webUrl === DEFAULT_TIER_WEB_URL) {
+    return {
+      apiUrl,
+      webUrl: undefined,
+      authType: validAuthType(authType),
+      tierKey,
+      authStore,
+      debug,
+      ...settings,
+    }
+  }
+
+  // both set, use them
+  return {
+    apiUrl,
+    webUrl,
+    authType: validAuthType(authType),
+    tierKey,
+    authStore,
+    debug,
+    ...settings,
+  }
+}
+
+export class TierClient {
+  apiUrl: string
+  webUrl: string | undefined
+  tierKey: string
+  authType: AuthType
   clientID: string
   authStore: AuthStore
 
-  static fromCwd(cwd: string, options: { [k: string]: any } = {}): TierClient {
-    const { authStore = defaultAuthStore, baseUrl = process.env.TIER_URL } =
-      options
-    if (baseUrl === undefined) {
-      throw new Error('must set TIER_URL in environment or baseUrl in options')
-    }
-    const token = authStore.get(cwd, baseUrl)
+  static fromCwd(cwd: string, options: MaybeSettings = {}): TierClient {
+    const {
+      authStore = defaultAuthStore,
+      apiUrl,
+      webUrl,
+      ...settings
+    } = settingsOrEnv({ ...options, tierKey: TierClient.NO_AUTH })
+
+    const token = authStore.get(cwd, apiUrl)
     if (!token || !token.access_token) {
       throw new Error('please run: tier login')
     }
-    if (token.token_type !== 'basic' && token.token_type !== 'bearer') {
-      throw new Error('unsupported auth type: ' + token.token_type)
-    }
+
     return new TierClient({
-      ...options,
-      baseUrl: baseUrl,
+      ...settings,
+      apiUrl,
+      webUrl,
       tierKey: token.access_token,
-      authType: token.token_type,
+      authType: validAuthType(token.token_type),
     })
   }
 
-  static fromEnv(options: { [k: string]: any } = {}): TierClient {
-    if (process.env.TIER_URL === undefined) {
-      throw new Error('must set TIER_URL in environment')
-    }
-    if (process.env.TIER_KEY === undefined) {
-      throw new Error('must set TIER_KEY in environment')
-    }
-    const authType = process.env.TIER_AUTH_TYPE || 'basic'
-    if (authType !== 'basic' && authType !== 'bearer') {
-      throw new Error('unsupported auth type: ' + authType)
-    }
-    return new TierClient({
-      ...options,
-      baseUrl: process.env.TIER_URL,
-      tierKey: process.env.TIER_KEY,
-      authType,
-    })
+  static fromEnv(options: MaybeSettings = {}): TierClient {
+    return new TierClient(settingsOrEnv(options))
   }
 
-  constructor({
-    baseUrl,
-    tierKey,
-    authType,
-    authStore = defaultAuthStore,
-    debug = process.env.TIER_DEBUG === '1' ||
-      /\btier\b/i.test(process.env.NODE_DEBUG || ''),
-  }: {
-    baseUrl: string
-    tierKey: string
-    authType?: 'basic' | 'bearer'
-    authStore?: AuthStore
-    debug?: boolean
-  }) {
-    this.baseUrl = baseUrl
+  constructor(options: MaybeSettings) {
+    const { apiUrl, webUrl, tierKey, authType, authStore, debug } =
+      settingsOrEnv(options)
+
+    this.apiUrl = apiUrl
+    this.webUrl = webUrl
     this.tierKey = tierKey
-    this.authType = authType || 'basic'
+    this.authType = authType
     this.authStore = authStore
     if (debug) {
       this.debug = console.error
@@ -364,7 +500,7 @@ export class TierClient {
   debug(...args: any[]): void {}
 
   logout(cwd: string): void {
-    this.authStore.delete(cwd, this.baseUrl)
+    this.authStore.delete(cwd, this.apiUrl)
   }
 
   async initLogin(cwd: string): Promise<DeviceAuthorizationResponse> {
@@ -382,7 +518,7 @@ export class TierClient {
     // post on the endpoint with the grant_type and device_id until done
     // presumably whatever called this method is showing the user some
     // instructions
-    const { device_code, interval = 5 } = authResponse
+    const { device_code, interval = 10 } = authResponse
     await wait(interval * 1000)
     const res = await this.postFormOK<DeviceAccessTokenResponse>('/auth/cli', {
       client_id: this.clientID,
@@ -407,12 +543,12 @@ export class TierClient {
     const success = res as DeviceAccessTokenSuccessResponse
     if (!error && success.access_token) {
       const { token_type } = success
-      if (token_type !== 'basic' && token_type !== 'bearer') {
+      if (!isAuthType(token_type)) {
         throw new Error('Received unsupported token type: ' + token_type)
       }
       // auth success
       this.clientID = ''
-      this.authStore.set(cwd, this.baseUrl, success)
+      this.authStore.set(cwd, this.apiUrl, success)
       return res
     }
 
@@ -431,7 +567,7 @@ export class TierClient {
 
   // all or nothing
   authorize(h: HeadersInit | undefined): Headers {
-    if (this.tierKey) {
+    if (this.tierKey !== TierClient.NO_AUTH) {
       const withAuth = new Headers(h)
       withAuth.set(
         'authorization',
@@ -448,38 +584,42 @@ export class TierClient {
   }
 
   async fetchOK<T>(path: string, options: RequestInit): Promise<T> {
-    const u = new URL(path, this.baseUrl)
+    const url = tierUrl(path, this.apiUrl, this.webUrl)
     options.headers = this.authorize(options.headers)
     options.headers.set('user-agent', USER_AGENT)
     options.headers.set('accept', 'application/json')
 
     const reqForError = () => ({
-      method: options.method,
-      path,
-      baseUrl: this.baseUrl,
+      method: options.method || 'GET',
+      url,
       headers: Object.fromEntries(
         [...new Headers(options.headers).entries()].map(([k, v]) => [
           k,
           k === 'authorization' ? '(redacted)' : v,
         ])
       ),
+      body: options.body,
     })
+    this.debug(reqForError())
 
-    const res = await fetch(String(u), options).catch(er => {
+    const res = await fetch(url, options).catch(er => {
       if (er && typeof er === 'object' && er instanceof Error) {
         const msg = er.message || 'tier fetch failed'
-        this.debug('fetch error, no response', er)
-        throw new TierError(msg, reqForError())
+        const ter = new TierError(msg, reqForError())
+        this.debug('fetch error, no response', er, ter)
+        throw ter
       } else {
         throw er
       }
     })
     if (!res.ok) {
-      throw new TierError('tier fetch failed', reqForError(), {
+      const ter = new TierError('tier fetch failed', reqForError(), {
         status: res.status,
         headers: Object.fromEntries(res.headers.entries()),
         body: await res.text(),
       })
+      this.debug('not-ok response', ter)
+      throw ter
     }
     return (await res.json()) as T
   }
@@ -567,5 +707,9 @@ export class TierClient {
     } catch (_) {
       return true
     }
+  }
+
+  static get NO_AUTH() {
+    return '<nil>'
   }
 }
