@@ -319,8 +319,8 @@ enum AuthType {
 const isAuthType = (at: any): at is AuthType =>
   typeof at === 'string' && (at === AuthType.BASIC || at === AuthType.BEARER)
 
-const DEFAULT_TIER_API_URL = 'https://api.tier.run/'
-const DEFAULT_TIER_WEB_URL = 'https://tier.run/'
+const DEFAULT_TIER_API_URL = 'https://api.tier.run'
+const DEFAULT_TIER_WEB_URL = 'https://tier.run'
 const DEFAULT_TIER_AUTH_TYPE = AuthType.BASIC
 
 type MaybeSettings = {
@@ -397,6 +397,14 @@ const validAuthType = (tokenType: string | undefined): AuthType => {
   }
 }
 
+const fixUrl = (url: string): string | undefined => {
+  try {
+    return new URL(url).origin
+  } catch (_) {
+    return undefined
+  }
+}
+
 const validSettings = ({
   authStore = defaultAuthStore,
   tierKey,
@@ -408,6 +416,19 @@ const validSettings = ({
 }: MaybeSettings): Settings => {
   if (!tierKey) {
     throw new Error('must provide tierKey in options or env.TIER_KEY')
+  }
+
+  const fixedApiUrl = apiUrl && fixUrl(apiUrl)
+  const fixedWebUrl = webUrl && fixUrl(webUrl)
+  if (fixedApiUrl !== apiUrl || fixedWebUrl !== webUrl) {
+    return validSettings({
+      apiUrl: fixedApiUrl,
+      webUrl: fixedWebUrl,
+      authStore,
+      tierKey,
+      debug,
+      ...settings
+    })
   }
 
   // api not set, or set to the public default, use defaults
