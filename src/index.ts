@@ -504,9 +504,9 @@ export class TierClient {
 
   // validate that a path is allowed, and pick the host to send it to
   tierUrl (path: string): string {
-    const base = /^\/api\/v1\//.test(path)
+    const base = path.startsWith('/api/v1/')
       ? this.apiUrl
-      : /^\/auth\//.test(path)
+      : path.startsWith('/auth/')
       ? this.webUrl
       : null
     if (!base) {
