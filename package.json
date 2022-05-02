@@ -48,24 +48,24 @@
     "ts": false
   },
   "devDependencies": {
+    "@types/node": "^17.0.25",
     "@types/node-fetch": "^2.6.1",
     "@types/opener": "^1.4.0",
     "@types/tap": "^15.0.6",
     "c8": "^7.11.2",
-    "mkdirp": "^1.0.4",
+    "eslint-config-prettier": "^8.5.0",
+    "foreground-child": "^2.0.0",
     "prettier": "^2.6.2",
     "tap": "^16.0.1",
     "touch": "^3.1.0",
+    "ts-node": "^10.7.0",
+    "tslib": "^2.4.0",
     "typescript": "^4.6.3"
   },
   "dependencies": {
-    "@types/node": "^17.0.25",
-    "eslint-config-prettier": "^8.5.0",
-    "foreground-child": "^2.0.0",
+    "@isaacs/cli-env-config": "^1.0.0",
     "node-fetch": "^2.6.7",
-    "opener": "^1.5.2",
-    "ts-node": "^10.7.0",
-    "tslib": "^2.4.0"
+    "opener": "^1.5.2"
   },
   "optionalDependencies": {
     "@tier.run/cli-darwin-amd64": "~0.0.0-0 || 0 || 1",
