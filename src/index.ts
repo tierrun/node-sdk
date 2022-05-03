@@ -506,7 +506,7 @@ export class TierClient {
   tierUrl (path: string): string {
     const base = path.startsWith('/api/v1/')
       ? this.apiUrl
-      : path.startsWith('/auth/')
+      : path.startsWith('/auth/') || path.startsWith('/web/')
       ? this.webUrl
       : null
     if (!base) {
