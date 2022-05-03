@@ -14,8 +14,11 @@ import { dirname, resolve } from 'path'
 import { cliEnvConfig } from '@isaacs/cli-env-config'
 const parseArgv = cliEnvConfig({
   prefix: 'TIER',
-  options: [['api-url', 'a'], ['web-url', 'w'], ['key', 'k'], 'auth-type'],
-  switches: [['debug', 'd'], ['help', 'h']],
+  options: [['apiUrl', 'a'], ['webUrl', 'w'], ['key', 'k'], 'authType'],
+  switches: [
+    ['debug', 'd'],
+    ['help', 'h'],
+  ],
   switchInverts: [['noDebug', 'debug', 'D']],
 })
 
@@ -62,7 +65,8 @@ const usage = (msg: string, er?: any) => {
 }
 
 const topUsage = (er?: any) =>
-  usage(`tier: usage: tier [options] <command>
+  usage(
+    `tier: usage: tier [options] <command>
 
 Options:
 
@@ -103,7 +107,9 @@ Commands:
   pull             Show the current model.
 
   whoami           Get the organization ID associated with the current login.
-`, er)
+`,
+    er
+  )
 
 const projectRootFiles = [
   '.git',
@@ -143,7 +149,7 @@ const main = async (argvInput: string[]) => {
   try {
     parsed = parseArgv(argvInput)
   } catch (er) {
-    return topUsage((er as {message:string}).message)
+    return topUsage((er as { message: string }).message)
   }
   const { config, argv } = parsed
 
@@ -170,11 +176,17 @@ const main = async (argvInput: string[]) => {
   }
 }
 
-const dumpConf = (config: {[k:string]:any}, argv: string[]): void => {
+const dumpConf = (config: { [k: string]: any }, argv: string[]): void => {
   if (config.key) {
     config.key = '(redacted)'
   }
-  console.log({ config, argv})
+  const env: { [k: string]: string } = {}
+  for (const [key, val] of Object.entries(process.env)) {
+    if (/^TIER_/.test(key) && val !== undefined) {
+      env[key] = key === 'TIER_KEY' ? '(redacted)' : val
+    }
+  }
+  console.log({ config, argv, env })
 }
 
 const getClient = (): TierClient => {
@@ -250,9 +262,7 @@ const doPull = async (argv: string[]): Promise<void> => {
   }
 }
 
-const doPush = async (
-  argv: string[]
-): Promise<void> => {
+const doPush = async (argv: string[]): Promise<void> => {
   const fname = argv.shift()
   if (!fname) {
     return pushUsage(new Error('must supply filename'))

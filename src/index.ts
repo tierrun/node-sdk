@@ -411,7 +411,7 @@ const validSettings = ({
       authStore,
       tierKey,
       debug,
-      ...settings
+      ...settings,
     })
   }
 
@@ -503,7 +503,7 @@ export class TierClient {
   }
 
   // validate that a path is allowed, and pick the host to send it to
-  tierUrl (path: string): string {
+  tierUrl(path: string): string {
     const base = path.startsWith('/api/v1/')
       ? this.apiUrl
       : path.startsWith('/auth/') || path.startsWith('/web/')
