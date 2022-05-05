@@ -731,7 +731,7 @@ export class TierClient {
   }
 
   tierJSUrl (): string {
-    return String(new URL(this.webUrl || 'https://tier.run', '/tier.js'))
+    return String(new URL('/tier.js', this.webUrl || 'https://tier.run'))
   }
 
   async pushPricingPage(name: string, pp: PricingPage): Promise<null | {}> {
