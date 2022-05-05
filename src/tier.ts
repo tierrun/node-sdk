@@ -4,7 +4,6 @@
 
 import { TierClient } from './index.js'
 import type {
-  TierError,
   ErrorResponse,
   DeviceAuthorizationSuccessResponse,
 } from './index.js'
@@ -158,19 +157,21 @@ const main = async (argvInput: string[]) => {
     case undefined:
       return topUsage()
     case 'login':
-      return doLogin(argv)
+      return doLogin()
     case 'logout':
       return doLogout(argv)
     case 'projectDir':
-      return showProjectDir(argv)
+      return showProjectDir()
     case 'push':
       return doPush(argv)
     case 'pull':
-      return doPull(argv)
+      return doPull()
     case 'whoami':
-      return whoami(argv)
+      return whoami()
     case 'dumpconf':
       return dumpConf(config, argv)
+    case 'pricing-page':
+      return doPricingPage(argv)
     default:
       return topUsage(`Unrecognized command: ${cmd}`)
   }
@@ -205,11 +206,11 @@ const getClient = (): TierClient => {
   }
 }
 
-const showProjectDir = (argv: string[]) => {
+const showProjectDir = () => {
   console.log(projectDir())
 }
 
-const doLogin = async (argv: string[]): Promise<void> => {
+const doLogin = async (): Promise<void> => {
   const { default: opener } = await import('opener')
   const cwd = projectDir() || process.cwd()
   const tc = TierClient.fromEnv({ tierKey: TierClient.NO_AUTH })
@@ -248,12 +249,12 @@ const doLogout = (argv: string[]): void => {
 
 const pushUsage = (er?: any) => usage(`usage: tier push <pricing.json>`, er)
 
-const whoami = async (argv: string[]): Promise<void> => {
+const whoami = async (): Promise<void> => {
   console.log(JSON.stringify(await getClient().ping(), null, 2))
 }
 
 const pullUsage = (er?: any) => usage(`usage: tier pull`, er)
-const doPull = async (argv: string[]): Promise<void> => {
+const doPull = async (): Promise<void> => {
   try {
     const data = await getClient().pullModel()
     console.log(JSON.stringify(data, null, 2))
@@ -274,5 +275,35 @@ const doPush = async (argv: string[]): Promise<void> => {
     pushUsage(er)
   }
 }
+
+const pricingPageUsage = (er?: any) =>
+  usage(`usage: tier pricing-page <pull [<name>] | push <jsonfile>>`, er)
+const doPricingPage = async (argv: string[]): Promise<void> => {
+  const cmd = argv.shift()
+  if (!cmd) {
+    return pricingPageUsage(new Error('must supply a command'))
+  }
+  switch (cmd) {
+    case 'pull':
+      return doPricingPagePull(argv)
+    case 'push':
+      return doPricingPagePush(argv)
+    default:
+      return pricingPageUsage(new Error('must supply a command'))
+  }
+}
+
+const doPricingPagePull = async (argv: string[]): Promise<void> => {
+  const name = argv.shift() || 'default'
+  try {
+    const res = await getClient().pullPricingPage(name)
+    console.log(JSON.stringify(res, null, 2))
+  } catch (er) {
+    console.error(er)
+    process.exit(1)
+  }
+}
+
+const doPricingPagePush = async (argv: string[]): Promise<void> => {}
 
 main(process.argv.slice(2))

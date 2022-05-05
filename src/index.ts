@@ -101,6 +101,13 @@ export interface Model {
   }
 }
 
+export interface PricingPage {
+  id?: string
+  name: string
+  signupURL?: string
+  plans: Plan[]
+}
+
 export interface StripeOptions {
   publishableKey: string
   accountID: string
@@ -716,6 +723,21 @@ export class TierClient {
 
   async pullModel(): Promise<Model> {
     return this.getOK<Model>('/api/v1/pull')
+  }
+
+  async pullPricingPage(name: string = 'default'): Promise<PricingPage> {
+    const path = `/web/pricing-page/${name ? `-/${name}` : ''}`
+    return await this.getOK<PricingPage>(path)
+  }
+
+  tierJSUrl (): string {
+    return String(new URL(this.webUrl || 'https://tier.run', '/tier.js'))
+  }
+
+  async pushPricingPage(name: string, pp: PricingPage): Promise<null | {}> {
+    // TODO
+    console.log(name, pp)
+    return null
   }
 
   async cannot(org: OrgName, feature: FeatureName): Promise<boolean> {
