@@ -695,6 +695,11 @@ export class TierClient {
     return await this.getOK<Schedule>('/api/v1/schedule?org=' + org)
   }
 
+  async lookupCurrentPlan(org: OrgName): Promise<PlanName> {
+    const schedule = await this.lookupSchedule(org)
+    return schedule.phases[schedule.current].plan
+  }
+
   async ping(): Promise<any> {
     return await this.getOK<any>('/api/v1/whoami')
   }
