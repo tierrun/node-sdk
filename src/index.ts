@@ -293,7 +293,11 @@ export type DeviceAccessTokenResponse =
 type OrgPrefix = 'org:'
 export type OrgName = `${OrgPrefix}${string}`
 
-export type Reservation = any // TODO
+export interface Reservation {
+  limit: number
+  used: number
+}
+
 export type Schedule = any // TODO
 
 const wait = async (n: number) => await new Promise(r => setTimeout(r, n))
@@ -735,7 +739,7 @@ export class TierClient {
     return await this.getOK<PricingPage>(path)
   }
 
-  tierJSUrl (): string {
+  tierJSUrl(): string {
     return String(new URL('/tier.js', this.webUrl || 'https://tier.run'))
   }
 
@@ -747,8 +751,9 @@ export class TierClient {
 
   async cannot(org: OrgName, feature: FeatureName): Promise<boolean> {
     try {
-      await this.reserveN(new Date(), org, feature, 1)
-      return false
+      const rsv = await this.reserveN(new Date(), org, feature, 1)
+      this.debug('reserved', rsv)
+      return rsv.used > rsv.limit
     } catch (_) {
       return true
     }
