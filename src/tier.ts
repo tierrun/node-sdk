@@ -11,6 +11,7 @@ import { readFileSync, existsSync } from 'fs'
 import { dirname, resolve } from 'path'
 
 import { cliEnvConfig } from '@isaacs/cli-env-config'
+
 const parseArgv = cliEnvConfig({
   prefix: 'TIER',
   options: [['apiUrl', 'a'], ['webUrl', 'w'], ['key', 'k'], 'authType'],
@@ -106,6 +107,8 @@ Commands:
   pull             Show the current model.
 
   whoami           Get the organization ID associated with the current login.
+
+  fetch <path>     Make an arbitrary request to a Tier API endpoint.
 `,
     er
   )
@@ -304,6 +307,41 @@ const doPricingPagePull = async (argv: string[]): Promise<void> => {
   }
 }
 
-const doPricingPagePush = async (argv: string[]): Promise<void> => {}
+const doPricingPagePush = async (_: string[]): Promise<void> => {}
+
+
+const fetchUsage = (er?: any) => usage(
+`usage: tier fetch [options...] <path>
+options:
+  -X, --method   the HTTP method to use, eg POST or GET
+  -H, --header   add an HTTP header to the request
+  --body <data>  JSON to send as the request body`, er)
+
+const doFetch = async (argvInput: string[]): Promise<void> => {
+  const parser = cliEnvConfig({
+    prefix: 'TIER',
+    options: [['method', 'X'], '--body'],
+    multivars: [['header', 'H']],
+  })
+  const { argv, config: { method = 'GET', header = [], body }} = parser(argvInput)
+  const path = argv.shift()
+  if (!path) {
+    return fetchUsage('must provide API path')
+  }
+  try {
+    const res = getClient().fetchOK(path, {
+      headers: (header as string[]).map(h => {
+        const [key, ...val] = h.split(':')
+        return [key, val.join(':')]
+      }),
+      method: method as string,
+      body: body as string | undefined,
+    })
+    console.log(JSON.stringify(res, null, 2))
+  } catch (er) {
+    console.error(er)
+    process.exit(1)
+  }
+}
 
 main(process.argv.slice(2))
