@@ -2,8 +2,11 @@
 
 // vim: ft=typescript
 
-import { TierClient } from './index'
-import type { ErrorResponse, DeviceAuthorizationSuccessResponse } from './index'
+import {
+  TierClient,
+  ErrorResponse,
+  DeviceAuthorizationSuccessResponse,
+} from './index'
 
 type Command = (
   argv: string[],

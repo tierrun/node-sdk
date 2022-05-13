@@ -10,33 +10,11 @@ interface TierErrorRequest {
   headers: { [k: string]: any }
   body?: any
 }
-const isTierErrorRequest = (raw: unknown): raw is TierErrorRequest => {
-  const req = raw as TierErrorRequest
-  return (
-    !!req &&
-    typeof req === 'object' &&
-    typeof req.method === 'string' &&
-    typeof req.url === 'string' &&
-    !!req.headers &&
-    typeof req.headers === 'object'
-  )
-}
 
 interface TierErrorResponse {
   status: number
   headers: { [k: string]: any }
   body: string
-}
-const isTierErrorResponse = (raw: unknown): raw is TierErrorResponse => {
-  const res = raw as TierErrorResponse
-  return (
-    !!res &&
-    typeof res === 'object' &&
-    typeof res.status === 'number' &&
-    !!res.headers &&
-    typeof res.headers === 'object' &&
-    typeof res.body === 'string'
-  )
 }
 
 export class TierError extends Error {
@@ -48,20 +26,14 @@ export class TierError extends Error {
     request: TierErrorRequest,
     response?: TierErrorResponse
   ) {
-    super(message || 'tier fetch failed')
+    super(message)
     this.request = request
     this.response = response
+    Error.captureStackTrace(this, TierClient.prototype.fetchOK)
   }
 
-  static is(raw: unknown): raw is TierError {
-    const er = raw as TierError
-    return (
-      !!er &&
-      typeof er === 'object' &&
-      er instanceof TierError &&
-      isTierErrorRequest(er.request) &&
-      (er.response === undefined || isTierErrorResponse(er.response))
-    )
+  get name() {
+    return 'TierError'
   }
 }
 
@@ -114,153 +86,6 @@ export interface StripeOptions {
   clientSecret: string
 }
 
-export interface AuthStore {
-  get: (
-    cwd: string,
-    apiUrl: string
-  ) => DeviceAccessTokenSuccessResponse | undefined
-  set: (
-    cwd: string,
-    apiUrl: string,
-    token: DeviceAccessTokenSuccessResponse
-  ) => any
-  delete: (cwd: string, apiUrl: string) => any
-  [key: string]: any
-}
-
-import { encode } from 'querystring'
-const grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
-
-// TODO: abstract all login stuff into a TierClientCLI class, so that we're
-// not importing it where tierweb uses it.
-// store tokens in ~/.config/tier/tokens/${hash(cwd)}
-import {
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  unlinkSync,
-  lstatSync,
-} from 'fs'
-
-import { createHash } from 'crypto'
-import { resolve } from 'path'
-
-const hash = (str: string) => createHash('sha512').update(str).digest('hex')
-
-const defaultAuthStore: AuthStore = {
-  debug:
-    /\btier\b/.test(process.env.NODE_DEBUG || '') ||
-    process.env.TIER_DEBUG === '1',
-
-  get: (cwd, apiUrl) => {
-    if (defaultAuthStore.debug) {
-      console.error('get token', { cwd, apiUrl })
-    }
-    if (!process.env.HOME) {
-      throw new Error('no $HOME directory set')
-    }
-
-    const h = hash(hash(cwd) + hash(apiUrl))
-    const file = resolve(process.env.HOME, '.config/tier/tokens', h)
-    if (defaultAuthStore.debug) {
-      console.error('file', file)
-    }
-
-    try {
-      const st = lstatSync(file)
-      // immediately stop trusting it if it smells funny.
-      if (!st.isFile() || (st.mode & 0o777) !== 0o600 || st.nlink !== 1) {
-        throw new Error('invalid token store file type')
-      }
-      const record = JSON.parse(readFileSync(file, 'utf8'))
-      if (!Array.isArray(record) || record.length !== 4) {
-        throw new Error('token file invalid')
-      }
-      const [token, born, url, sig] = record
-      if (url !== apiUrl) {
-        throw new Error('token file invalid host')
-      }
-      // not security really, just fs corruption defense
-      if (sig !== hash(JSON.stringify([token, born, url]))) {
-        throw new Error('token file corrupted')
-      }
-      if (token.expires_in) {
-        // TODO: refresh_token flow?  would need to expose this case somehow,
-        // rather than just deleting the record.
-        const now = Date.now()
-        if (now > born + token.expires_in * 1000) {
-          throw new Error('token expired')
-        }
-      }
-      if (!token.access_token) {
-        throw new Error('no access_token found in record')
-      }
-      return token
-    } catch (er) {
-      if (defaultAuthStore.debug) {
-        const m =
-          (er &&
-            typeof er === 'object' &&
-            er instanceof Error &&
-            er?.message) ||
-          er
-
-        console.error(cwd, m)
-      }
-      defaultAuthStore.delete(cwd, apiUrl)
-    }
-  },
-
-  set: (cwd, apiUrl, token) => {
-    if (!process.env.HOME) {
-      throw new Error('no $HOME directory set')
-    }
-    const h = hash(hash(cwd) + hash(apiUrl))
-    const root = resolve(process.env.HOME, '.config/tier/tokens')
-    const file = resolve(root, h)
-    mkdirSync(root, { recursive: true, mode: 0o700 })
-    const born = Date.now()
-    const sig = hash(JSON.stringify([token, born, apiUrl]))
-    if (defaultAuthStore.debug) {
-      const { access_token, refresh_token, ...redacted } = token
-      Object.assign(redacted as DeviceAccessTokenSuccessResponse, {
-        access_token: '(redacted)',
-        refresh_token: '(redacted)',
-      })
-      console.error('WRITE TOKEN FILE', file, [redacted, born, apiUrl, sig])
-    }
-    const j = JSON.stringify([token, born, apiUrl, sig])
-    writeFileSync(file, j, { mode: 0o600 })
-  },
-
-  delete: (cwd, apiUrl) => {
-    if (!process.env.HOME) {
-      throw new Error('no $HOME directory set')
-    }
-    const h = hash(hash(cwd) + hash(apiUrl))
-    const root = resolve(process.env.HOME, '.config/tier/tokens')
-    const file = resolve(root, h)
-    try {
-      unlinkSync(file)
-    } catch (er) {
-      if (
-        !er ||
-        typeof er !== 'object' ||
-        (er as { code?: string })?.code !== 'ENOENT'
-      ) {
-        throw er
-      }
-    }
-  },
-}
-
-import nfPackage from 'node-fetch/package.json'
-const USER_AGENT = (() => {
-  const pj = readFileSync(resolve(__dirname, '../package.json'))
-  const pkg = JSON.parse(pj.toString('utf8'))
-  return `tier ${pkg.name}@${pkg.version} node-fetch/${nfPackage.version} node/${process.version}`
-})()
-
 export interface DeviceAuthorizationSuccessResponse {
   device_code: string
   user_code: string
@@ -290,15 +115,60 @@ export type DeviceAccessTokenResponse =
   | DeviceAccessTokenSuccessResponse
   | ErrorResponse
 
+import { AuthStore, defaultAuthStore } from './auth-store'
+export type { AuthStore } from './auth-store'
+
+import { encode } from 'querystring'
+const grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
+
+// TODO: abstract all login stuff into a TierClientCLI class, so that we're
+// not importing it where tierweb uses it.
+// store tokens in ~/.config/tier/tokens/${hash}
+import { readFileSync } from 'fs'
+
+import { resolve } from 'path'
+
+import nfPackage from 'node-fetch/package.json'
+const USER_AGENT = (() => {
+  const pj = readFileSync(resolve(__dirname, '../package.json'))
+  const pkg = JSON.parse(pj.toString('utf8'))
+  return `tier ${pkg.name}@${pkg.version} node-fetch/${nfPackage.version} node/${process.version}`
+})()
+
 type OrgPrefix = 'org:'
 export type OrgName = `${OrgPrefix}${string}`
 
-export interface Reservation {
-  limit: number
-  used: number
+import { Reservation, ReservationFromTierd } from './reservation'
+export { Reservation } from './reservation'
+
+interface PhaseFromTierd {
+  plan: PlanName
+  // date strings
+  effective: string
+  scheduled?: string
+  // more details of phase/schedules TBD
+  [key: string]: any
 }
 
-export type Schedule = any // TODO
+export interface Phase {
+  plan: PlanName
+  effective: Date
+  scheduled?: Date
+  [key: string]: any
+}
+
+interface ScheduleFromTierd {
+  current: number
+  phases: PhaseFromTierd[]
+  // more details of phase/schedules TBD
+  [key: string]: any
+}
+
+export interface Schedule {
+  current: number
+  phases: Phase[]
+  [key: string]: any
+}
 
 const wait = async (n: number) => await new Promise(r => setTimeout(r, n))
 
@@ -392,13 +262,7 @@ const validAuthType = (tokenType: string | undefined): AuthType => {
   }
 }
 
-const fixUrl = (url: string): string | undefined => {
-  try {
-    return new URL(url).origin
-  } catch (_) {
-    return undefined
-  }
-}
+const fixUrl = (url: string): string => new URL(url).origin
 
 const validSettings = ({
   authStore = defaultAuthStore,
@@ -498,7 +362,7 @@ export class TierClient {
     return new TierClient(settingsOrEnv(options))
   }
 
-  constructor(options: MaybeSettings) {
+  constructor(options: MaybeSettings = {}) {
     const { apiUrl, webUrl, tierKey, authType, authStore, debug } =
       settingsOrEnv(options)
 
@@ -511,6 +375,10 @@ export class TierClient {
       this.debug = console.error
     }
     this.clientID = ''
+  }
+
+  tierJSUrl(): string {
+    return String(new URL('/tier.js', this.webUrl || 'https://tier.run'))
   }
 
   // validate that a path is allowed, and pick the host to send it to
@@ -526,13 +394,13 @@ export class TierClient {
     return String(new URL(path, base))
   }
 
-  debug(...args: any[]): void {}
+  debug(..._: any[]): void {}
 
   logout(cwd: string): void {
     this.authStore.delete(cwd, this.apiUrl)
   }
 
-  async initLogin(cwd: string): Promise<DeviceAuthorizationResponse> {
+  async initLogin(): Promise<DeviceAuthorizationResponse> {
     // start the initialization
     this.clientID = randomUUID()
     return await this.postFormOK<DeviceAuthorizationResponse>('/auth/cli', {
@@ -553,26 +421,33 @@ export class TierClient {
       client_id: this.clientID,
       device_code,
       grant_type,
-    }).catch(er => {
-      if (
-        er &&
-        er.response &&
-        er.response.body &&
-        typeof er.response.body === 'string' &&
-        er.response.headers &&
-        typeof er.response.headers === 'object' &&
-        er.response.headers['content-type'].startsWith('application/json')
-      ) {
-        return JSON.parse(er.response.body)
-      }
-      throw er
     })
+      .catch(er => {
+        if (
+          er &&
+          er.response &&
+          er.response.body &&
+          typeof er.response.body === 'string' &&
+          er.response.headers &&
+          typeof er.response.headers === 'object' &&
+          typeof er.response.headers['content-type'] === 'string' &&
+          er.response.headers['content-type'].startsWith('application/json')
+        ) {
+          return JSON.parse(er.response.body)
+        }
+        throw er
+      })
+      .catch(e => {
+        this.clientID = ''
+        throw e
+      })
 
     const { error } = res as { error?: string }
     const success = res as DeviceAccessTokenSuccessResponse
     if (!error && success.access_token) {
       const { token_type } = success
       if (!isAuthType(token_type)) {
+        this.clientID = ''
         throw new Error('Received unsupported token type: ' + token_type)
       }
       // auth success
@@ -631,16 +506,20 @@ export class TierClient {
     })
     this.debug(reqForError())
 
-    const res = await fetch(url, options).catch(er => {
-      if (er && typeof er === 'object' && er instanceof Error) {
-        const msg = er.message || 'tier fetch failed'
-        const ter = new TierError(msg, reqForError())
-        this.debug('fetch error, no response', er, ter)
-        throw ter
-      } else {
-        throw er
-      }
-    })
+    let res
+    try {
+      res = await fetch(url, options)
+    } catch (err) {
+      // fetch() can only ever throw actual Error objects with
+      // a string message but TS wants what it wants.
+      const er = err as Error
+      /* c8 ignore next */
+      const msg = er.message || 'tier fetch failed'
+      const ter = new TierError(msg, reqForError())
+      this.debug('fetch error, no response', er, ter)
+      throw ter
+    }
+
     if (!res.ok) {
       const ter = new TierError('tier fetch failed', reqForError(), {
         status: res.status,
@@ -650,7 +529,20 @@ export class TierClient {
       this.debug('not-ok response', ter)
       throw ter
     }
-    return (await res.json()) as T
+
+    let body
+    try {
+      body = await res.text()
+      return JSON.parse(body) as T
+    } catch (er) {
+      const ter = new TierError('tier invalid JSON', reqForError(), {
+        status: res.status,
+        headers: Object.fromEntries(res.headers.entries()),
+        body: String(body),
+      })
+      this.debug('bad json', er, ter)
+      throw ter
+    }
   }
 
   async getOK<T>(path: string): Promise<T> {
@@ -680,32 +572,27 @@ export class TierClient {
     })
   }
 
-  async reserveN(
-    now: Date | null,
-    org: OrgName,
-    feature: FeatureName,
-    n: number
-  ): Promise<Reservation> {
-    // TODO(bmizerany): hook this up
-    return await this.postOK<Reservation>('/api/v1/reserve', {
-      org,
-      feature,
-      n,
-      now: now?.toISOString(),
-    })
-  }
-
-  async lookupSchedule(org: OrgName): Promise<Schedule> {
-    return await this.getOK<Schedule>('/api/v1/schedule?org=' + org)
-  }
-
-  async lookupCurrentPlan(org: OrgName): Promise<PlanName> {
-    const schedule = await this.lookupSchedule(org)
-    return schedule.phases[schedule.current].plan
-  }
-
   async ping(): Promise<any> {
     return await this.getOK<any>('/api/v1/whoami')
+  }
+
+  async pushModel(model: Model): Promise<null> {
+    return await this.postOK<null>('/api/v1/push', model)
+  }
+  async pullModel(): Promise<Model> {
+    return this.getOK<Model>('/api/v1/pull')
+  }
+
+  async appendPhase(
+    org: OrgName,
+    plan: PlanName,
+    effective: Date | string | number = new Date()
+  ): Promise<any> {
+    return await this.postOK<any>('/api/v1/append', {
+      org,
+      plan,
+      effective: new Date(effective).toISOString(),
+    })
   }
 
   async stripeOptions(org: OrgName): Promise<StripeOptions> {
@@ -714,49 +601,113 @@ export class TierClient {
     })
   }
 
-  async appendPhase(
-    org: OrgName,
-    plan: PlanName,
-    effective?: Date
-  ): Promise<any> {
-    return await this.postOK<any>('/api/v1/append', {
-      org,
-      plan,
-      effective: effective?.toISOString(),
-    })
+  async lookupSchedule(org: OrgName): Promise<Schedule> {
+    const raw: ScheduleFromTierd = await this.getOK<ScheduleFromTierd>(
+      '/api/v1/schedule?org=' + org
+    )
+    // Date-ify the scheduled and effective date strings
+    return {
+      ...raw,
+      phases: raw.phases.map(
+        p =>
+          ({
+            ...p,
+            ...{ effective: new Date(p.effective) },
+            ...(p.scheduled ? { scheduled: new Date(p.scheduled) } : {}),
+          } as Phase)
+      ),
+    }
   }
 
-  async pushModel(model: Model): Promise<null> {
-    return await this.postOK<null>('/api/v1/push', model)
+  async lookupCurrentPlan(org: OrgName): Promise<PlanName> {
+    const schedule = await this.lookupSchedule(org)
+    return schedule.phases[schedule.current].plan
   }
 
-  async pullModel(): Promise<Model> {
-    return this.getOK<Model>('/api/v1/pull')
-  }
-
-  async pullPricingPage(name: string = 'default'): Promise<PricingPage> {
+  async pullPricingPage(name: string = ''): Promise<PricingPage> {
     const path = `/web/pricing-page/${name ? `-/${name}` : ''}`
     return await this.getOK<PricingPage>(path)
   }
 
-  tierJSUrl(): string {
-    return String(new URL('/tier.js', this.webUrl || 'https://tier.run'))
-  }
-
+  /* c8 ignore start */
   async pushPricingPage(name: string, pp: PricingPage): Promise<null | {}> {
     // TODO
     console.log(name, pp)
     return null
   }
+  /* c8 ignore stop */
 
-  async cannot(org: OrgName, feature: FeatureName): Promise<boolean> {
-    try {
-      const rsv = await this.reserveN(new Date(), org, feature, 1)
-      this.debug('reserved', rsv)
-      return rsv.used > rsv.limit
-    } catch (_) {
-      return true
-    }
+  /**
+   * Reserve N units of feature usage for the specified org, and return
+   * a cancelable Reservation object.
+   */
+  async reserve(
+    org: OrgName,
+    feature: FeatureName,
+    n: number = 1,
+    now: Date | string | number = new Date()
+  ): Promise<Reservation> {
+    now = new Date(now)
+    return new Reservation(
+      this,
+      org,
+      feature,
+      n,
+      now,
+      await this.postOK<ReservationFromTierd>('/api/v1/reserve', {
+        org,
+        feature,
+        n,
+        now: new Date(now).toISOString(),
+      })
+    )
+  }
+
+  // convenience wrappers for reserve()
+
+  /**
+   * Get the current usage as a Reservation object
+   * containing "used" and "limit".
+   * No side effects, does not record usage.
+   */
+  async currentUsage(
+    org: OrgName,
+    feature: FeatureName,
+    now: Date | string | number = new Date()
+  ): Promise<Reservation> {
+    return this.reserve(org, feature, 0, now)
+  }
+
+  /**
+   * returns true if the user is entitled to reserve the full unit count.
+   * No side-effects, does not register usage.
+   *
+   * Note that the request is point-in-time.  It does not "hold" the value,
+   * so a subsequent reservation may still go into overages.
+   */
+  async can(
+    org: OrgName,
+    feature: FeatureName,
+    n: number = 1,
+    now: Date | number | string = new Date()
+  ): Promise<boolean> {
+    const res = await this.currentUsage(org, feature, now)
+    const rem = res.limit - res.used
+    return rem >= n
+  }
+
+  /**
+   * Inverse of `can()`
+   * Returns true if the user is not allowed to make the reservation
+   * fully.
+   */
+  async cannot(
+    org: OrgName,
+    feature: FeatureName,
+    n: number = 1,
+    now: Date | string | number = new Date()
+  ): Promise<boolean> {
+    return !(await this.can(org, feature, n, now))
   }
 
   static get NO_AUTH() {
