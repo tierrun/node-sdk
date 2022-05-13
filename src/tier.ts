@@ -2,11 +2,14 @@
 
 // vim: ft=typescript
 
-import { TierClient } from './index.js'
-import type {
-  ErrorResponse,
-  DeviceAuthorizationSuccessResponse,
-} from './index.js'
+import { TierClient } from './index'
+import type { ErrorResponse, DeviceAuthorizationSuccessResponse } from './index'
+
+type Command = (
+  argv: string[],
+  config: { [key: string]: any }
+) => Promise<void> | void
+
 import { readFileSync, existsSync } from 'fs'
 import { dirname, resolve } from 'path'
 
@@ -16,10 +19,11 @@ const parseArgv = cliEnvConfig({
   prefix: 'TIER',
   options: [['apiUrl', 'a'], ['webUrl', 'w'], ['key', 'k'], 'authType'],
   switches: [
-    ['debug', 'd'],
+    ['debug', 'v'],
     ['help', 'h'],
   ],
-  switchInverts: [['noDebug', 'debug', 'D']],
+  switchInverts: [['noVerbose', 'debug', 'V']],
+  allowUnknown: true,
 })
 
 const cleanErr = (er: any): any => {
@@ -85,8 +89,8 @@ Options:
   --auth-type=<basic|bearer>
                    Tell Tier to use the specified auth type.  Default: basic
 
-  --debug -d       Turn debug logging on
-  --no-debug -D    Turn debug logging off
+  --debug -v       Turn debug logging on
+  --no-debug -V    Turn debug logging off
 
   --help -h        Show this usage screen.
 
@@ -155,26 +159,27 @@ const main = async (argvInput: string[]) => {
   }
   const { config, argv } = parsed
 
+  const commands: { [key: string]: Command } = {
+    login: doLogin,
+    logout: doLogout,
+    projectDir: showProjectDir,
+    push: doPush,
+    pull: doPull,
+    whoami: whoami,
+    'pricing-page': doPricingPage,
+    fetch: doFetch,
+  }
+
   const cmd = argv.shift()
+  if (cmd && commands[cmd]) {
+    return commands[cmd](argv, config)
+  }
+
   switch (cmd) {
     case undefined:
       return topUsage()
-    case 'login':
-      return doLogin()
-    case 'logout':
-      return doLogout(argv)
-    case 'projectDir':
-      return showProjectDir()
-    case 'push':
-      return doPush(argv)
-    case 'pull':
-      return doPull()
-    case 'whoami':
-      return whoami()
     case 'dumpconf':
       return dumpConf(config, argv)
-    case 'pricing-page':
-      return doPricingPage(argv)
     default:
       return topUsage(`Unrecognized command: ${cmd}`)
   }
@@ -209,15 +214,29 @@ const getClient = (): TierClient => {
   }
 }
 
-const showProjectDir = () => {
+const showProjectDir: Command = (argv, _): void => {
+  // no options
+  cliEnvConfig({ prefix: 'TIER' })(argv)
   console.log(projectDir())
 }
 
-const doLogin = async (): Promise<void> => {
+const loginUsage = (er?: any) =>
+  usage(
+    `usage: tier login
+Run in a project directory`,
+    er
+  )
+const doLogin: Command = async (argv, config): Promise<void> => {
+  if (config.help) {
+    return loginUsage()
+  }
+  // no options
+  cliEnvConfig({ prefix: 'TIER' })(argv)
+
   const { default: opener } = await import('opener')
   const cwd = projectDir() || process.cwd()
   const tc = TierClient.fromEnv({ tierKey: TierClient.NO_AUTH })
-  const authResponse = await tc.initLogin(cwd)
+  const authResponse = await tc.initLogin()
   const eres = authResponse as ErrorResponse
   if (eres.error) {
     throw new Error(eres.error)
@@ -245,19 +264,28 @@ Waiting...`)
   console.log(`Logged into tier!\nproject: ${cwd}`)
 }
 
-const doLogout = (argv: string[]): void => {
+const doLogout: Command = (argv: string[]): void => {
+  // no options
+  cliEnvConfig({ prefix: 'TIER' })(argv)
+
   const cwd = projectDir() || process.cwd()
   TierClient.fromEnv({ tierKey: TierClient.NO_AUTH }).logout(cwd)
 }
 
 const pushUsage = (er?: any) => usage(`usage: tier push <pricing.json>`, er)
 
-const whoami = async (): Promise<void> => {
+const whoami: Command = async (argv: string[]): Promise<void> => {
+  // no options
+  cliEnvConfig({ prefix: 'TIER' })(argv)
+
   console.log(JSON.stringify(await getClient().ping(), null, 2))
 }
 
 const pullUsage = (er?: any) => usage(`usage: tier pull`, er)
-const doPull = async (): Promise<void> => {
+const doPull: Command = async (argv: string[]): Promise<void> => {
+  // no options
+  cliEnvConfig({ prefix: 'TIER' })(argv)
+
   try {
     const data = await getClient().pullModel()
     console.log(JSON.stringify(data, null, 2))
@@ -266,7 +294,10 @@ const doPull = async (): Promise<void> => {
   }
 }
 
-const doPush = async (argv: string[]): Promise<void> => {
+const doPush: Command = async (argv: string[]): Promise<void> => {
+  // no options
+  cliEnvConfig({ prefix: 'TIER' })(argv)
+
   const fname = argv.shift()
   if (!fname) {
     return pushUsage(new Error('must supply filename'))
@@ -281,22 +312,30 @@ const doPush = async (argv: string[]): Promise<void> => {
 
 const pricingPageUsage = (er?: any) =>
   usage(`usage: tier pricing-page <pull [<name>] | push <jsonfile>>`, er)
-const doPricingPage = async (argv: string[]): Promise<void> => {
+const doPricingPage: Command = async (argv, config): Promise<void> => {
+  // no options
+  cliEnvConfig({ prefix: 'TIER' })(argv)
+
   const cmd = argv.shift()
   if (!cmd) {
     return pricingPageUsage(new Error('must supply a command'))
   }
   switch (cmd) {
     case 'pull':
-      return doPricingPagePull(argv)
+      return doPricingPagePull(argv, config)
     case 'push':
-      return doPricingPagePush(argv)
-    default:
+      return doPricingPagePush(argv, config)
+    case undefined:
       return pricingPageUsage(new Error('must supply a command'))
+    default:
+      return pricingPageUsage(new Error(`Unrecognized command: ${cmd}`))
   }
 }
 
-const doPricingPagePull = async (argv: string[]): Promise<void> => {
+const doPricingPagePull: Command = async (argv, _): Promise<void> => {
+  // no options
+  cliEnvConfig({ prefix: 'TIER' })(argv)
+
   const name = argv.shift() || 'default'
   try {
     const res = await getClient().pullPricingPage(name)
@@ -307,35 +346,44 @@ const doPricingPagePull = async (argv: string[]): Promise<void> => {
   }
 }
 
-const doPricingPagePush = async (_: string[]): Promise<void> => {}
+// TODO
+const doPricingPagePush: Command = async (_, __): Promise<void> => {}
 
-
-const fetchUsage = (er?: any) => usage(
-`usage: tier fetch [options...] <path>
+const fetchUsage = (er?: any) =>
+  usage(
+    `usage: tier fetch [options...] <path>
 options:
-  -X, --method   the HTTP method to use, eg POST or GET
-  -H, --header   add an HTTP header to the request
-  --body <data>  JSON to send as the request body`, er)
+  -X, --method       the HTTP method to use, eg POST or GET
+  -H, --header       add an HTTP header to the request
+  -d, --data <data>  JSON string to send as the request body`,
+    er
+  )
 
 const doFetch = async (argvInput: string[]): Promise<void> => {
   const parser = cliEnvConfig({
     prefix: 'TIER',
-    options: [['method', 'X'], '--body'],
+    options: [
+      ['method', 'X'],
+      ['data', 'd'],
+    ],
     multivars: [['header', 'H']],
   })
-  const { argv, config: { method = 'GET', header = [], body }} = parser(argvInput)
+  const {
+    argv,
+    config: { method = 'GET', header = [], data },
+  } = parser(argvInput)
   const path = argv.shift()
   if (!path) {
     return fetchUsage('must provide API path')
   }
   try {
-    const res = getClient().fetchOK(path, {
+    const res = await getClient().fetchOK(path, {
       headers: (header as string[]).map(h => {
         const [key, ...val] = h.split(':')
         return [key, val.join(':')]
       }),
       method: method as string,
-      body: body as string | undefined,
+      body: data as string | undefined,
     })
     console.log(JSON.stringify(res, null, 2))
   } catch (er) {
