@@ -32,7 +32,7 @@ const client: MockClient = {
       n,
       now,
       {
-        used: this.used += n,
+        used: (this.used += n),
         limit: this.limit,
       }
     )

@@ -64,6 +64,7 @@
   },
   "dependencies": {
     "@isaacs/cli-env-config": "^1.0.1",
+    "nock": "^13.2.4",
     "node-fetch": "^2.6.7",
     "opener": "^1.5.2"
   },
