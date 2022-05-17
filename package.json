@@ -42,6 +42,7 @@
   "tap": {
     "coverage": false,
     "node-arg": [
+      "--no-warnings",
       "--loader",
       "ts-node/esm"
     ],
