@@ -82,6 +82,25 @@ t.test('server urls must match', async t => {
   t.equal(diffTierweb.tierJSUrl(), 'https://tier.run/tier.js')
 })
 
+t.test('empty model returns null', async t => {
+  const tier = new TierClient()
+  //@ts-ignore
+  tier.getOK = async () => null
+  t.equal(await tier.pullModel(), null)
+  //@ts-expect-error
+  tier.getOK = async () => 'hello'
+  t.equal(await tier.pullModel(), null)
+  //@ts-expect-error
+  tier.getOK = async () => ({})
+  t.equal(await tier.pullModel(), null)
+  //@ts-expect-error
+  tier.getOK = async () => ({ plans: {} })
+  t.equal(await tier.pullModel(), null)
+  //@ts-expect-error
+  tier.getOK = async () => ({ plans: {'plan:p@0':{}} })
+  t.strictSame(await tier.pullModel(), { plans: {'plan:p@0':{}} })
+})
+
 t.test('invalid options that blow up', async t => {
   t.throws(() => new TierClient({ apiUrl: 'hello', webUrl: 'world' }))
   t.throws(() => new TierClient({ authType: 'nope a dopey rope' }))

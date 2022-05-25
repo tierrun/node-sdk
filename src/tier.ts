@@ -2,21 +2,19 @@
 
 // vim: ft=typescript
 
+import { cliEnvConfig } from '@isaacs/cli-env-config'
+import { existsSync, readFileSync } from 'fs'
+import { dirname, resolve } from 'path'
 import {
-  TierClient,
-  ErrorResponse,
   DeviceAuthorizationSuccessResponse,
+  ErrorResponse,
+  TierClient,
 } from './index'
 
 type Command = (
   argv: string[],
   config: { [key: string]: any }
 ) => Promise<void> | void
-
-import { readFileSync, existsSync } from 'fs'
-import { dirname, resolve } from 'path'
-
-import { cliEnvConfig } from '@isaacs/cli-env-config'
 
 const parseArgv = cliEnvConfig({
   prefix: 'TIER',

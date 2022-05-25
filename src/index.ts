@@ -1,5 +1,14 @@
-import fetch, { HeadersInit, Headers, RequestInit } from 'node-fetch'
 import { randomUUID } from 'crypto'
+// TODO: abstract all login stuff into a TierClientCLI class, so that we're
+// not importing it where tierweb uses it.
+// store tokens in ~/.config/tier/tokens/${hash}
+import { readFileSync } from 'fs'
+import fetch, { Headers, HeadersInit, RequestInit } from 'node-fetch'
+import nfPackage from 'node-fetch/package.json'
+import { resolve } from 'path'
+import { encode } from 'querystring'
+import { AuthStore, defaultAuthStore } from './auth-store'
+import { Reservation, ReservationFromTierd } from './reservation'
 
 // TODO: handle refresh_token flow, right now we just delete
 // automatically when the key expires
@@ -115,20 +124,11 @@ export type DeviceAccessTokenResponse =
   | DeviceAccessTokenSuccessResponse
   | ErrorResponse
 
-import { AuthStore, defaultAuthStore } from './auth-store'
 export type { AuthStore } from './auth-store'
+export { Reservation } from './reservation'
 
-import { encode } from 'querystring'
 const grant_type = 'urn:ietf:params:oauth:grant-type:device_code'
 
-// TODO: abstract all login stuff into a TierClientCLI class, so that we're
-// not importing it where tierweb uses it.
-// store tokens in ~/.config/tier/tokens/${hash}
-import { readFileSync } from 'fs'
-
-import { resolve } from 'path'
-
-import nfPackage from 'node-fetch/package.json'
 const USER_AGENT = (() => {
   const pj = readFileSync(resolve(__dirname, '../package.json'))
   const pkg = JSON.parse(pj.toString('utf8'))
@@ -137,9 +137,6 @@ const USER_AGENT = (() => {
 
 type OrgPrefix = 'org:'
 export type OrgName = `${OrgPrefix}${string}`
-
-import { Reservation, ReservationFromTierd } from './reservation'
-export { Reservation } from './reservation'
 
 interface PhaseFromTierd {
   plan: PlanName
@@ -579,8 +576,19 @@ export class TierClient {
   async pushModel(model: Model): Promise<null> {
     return await this.postOK<null>('/api/v1/push', model)
   }
-  async pullModel(): Promise<Model> {
-    return this.getOK<Model>('/api/v1/pull')
+  async pullModel(): Promise<Model | null> {
+    const model = await this.getOK<Model>('/api/v1/pull')
+    // if the model invalid or empty, return null
+    if (
+      !model ||
+      typeof model !== 'object' ||
+      !model.plans ||
+      typeof model.plans !== 'object' ||
+      Object.keys(model.plans).length === 0
+    ) {
+      return null
+    }
+    return model
   }
 
   async appendPhase(
