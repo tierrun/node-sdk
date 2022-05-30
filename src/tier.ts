@@ -18,7 +18,7 @@ type Command = (
 
 const parseArgv = cliEnvConfig({
   prefix: 'TIER',
-  options: [['apiUrl', 'a'], ['webUrl', 'w'], ['key', 'k'], 'authType'],
+  options: [['api-url', 'a'], ['web-url', 'w'], ['key', 'k'], 'auth-type'],
   switches: [
     ['debug', 'v'],
     ['help', 'h'],
