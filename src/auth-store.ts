@@ -54,9 +54,12 @@ export const defaultAuthStore: AuthStore = {
     try {
       const st = lstatSync(file)
       // immediately stop trusting it if it smells funny.
+      // inapplicable on windows
+      /* c8 ignore start */
       if (!st.isFile() || (st.mode & 0o777) !== READONLY || st.nlink !== 1) {
         throw new Error('invalid token store file type')
       }
+      /* c8 ignore stop */
       const record = JSON.parse(readFileSync(file, 'utf8'))
       if (!Array.isArray(record) || record.length !== 4) {
         throw new Error('token file invalid')
