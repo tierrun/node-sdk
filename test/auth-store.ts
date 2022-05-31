@@ -138,8 +138,11 @@ t.test('bad json', t => {
   t.strictSame(defaultAuthStore.get(p, apiUrl), undefined)
   writeFileSync(file, JSON.stringify({ j }), { mode: 0o600 })
   t.strictSame(defaultAuthStore.get(p, apiUrl), undefined)
-  writeFileSync(file, JSON.stringify(j), { mode: 0o755 })
-  t.strictSame(defaultAuthStore.get(p, apiUrl), undefined)
+  // this check doesn't apply on windows
+  if (process.platform !== 'win32') {
+    writeFileSync(file, JSON.stringify(j), { mode: 0o755 })
+    t.strictSame(defaultAuthStore.get(p, apiUrl), undefined)
+  }
   t.end()
 })
 
