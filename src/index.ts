@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto'
+import { randomBytes, randomUUID } from 'crypto'
 // TODO: abstract all login stuff into a TierClientCLI class, so that we're
 // not importing it where tierweb uses it.
 // store tokens in ~/.config/tier/tokens/${hash}
@@ -9,6 +9,17 @@ import { resolve } from 'path'
 import { encode } from 'querystring'
 import { AuthStore, defaultAuthStore } from './auth-store'
 import { Reservation, ReservationFromTierd } from './reservation'
+
+// old node versions don't have a randomUUID method
+/* c8 ignore start */
+const uuid =
+  typeof randomUUID === 'function'
+    ? randomUUID
+    : () =>
+        randomBytes(16)
+          .toString('hex')
+          .replace(/^(.{8})(.{4})(.{4})(.{4})/, '$1-$2-$3-$4-')
+/* c8 ignore stop */
 
 // TODO: handle refresh_token flow, right now we just delete
 // automatically when the key expires
@@ -399,7 +410,7 @@ export class TierClient {
 
   async initLogin(): Promise<DeviceAuthorizationResponse> {
     // start the initialization
-    this.clientID = randomUUID()
+    this.clientID = uuid()
     return await this.postFormOK<DeviceAuthorizationResponse>('/auth/cli', {
       client_id: this.clientID,
     })
@@ -531,7 +542,9 @@ export class TierClient {
     try {
       body = await res.text()
       return JSON.parse(body) as T
+    /* c8 ignore start */
     } catch (er) {
+    /* c8 ignore stop */
       const ter = new TierError('tier invalid JSON', reqForError(), {
         status: res.status,
         headers: Object.fromEntries(res.headers.entries()),
