@@ -80,7 +80,7 @@ export type FeatureName = `${FeaturePrefix}${string}`
 export interface Plan {
   id?: string
   title?: string
-  features: {
+  features?: {
     [name: FeatureName]: Feature
   }
 }
