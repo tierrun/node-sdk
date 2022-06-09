@@ -1,13 +1,16 @@
+import { createHash } from 'crypto'
+import { readFileSync } from 'fs'
+import nock from 'nock'
+import { resolve } from 'path'
 import t from 'tap'
-
 import {
-  Reservation,
   DeviceAuthorizationSuccessResponse,
+  isTierError,
+  Reservation,
   StripeOptions,
   TierClient,
   TierError,
 } from '../lib/index'
-import nock from 'nock'
 
 type Nock = ReturnType<typeof nock>
 
@@ -27,10 +30,6 @@ t.afterEach(t => {
   t.context.api.done()
   t.context.web.done()
 })
-
-import { resolve } from 'path'
-import { readFileSync } from 'fs'
-import { createHash } from 'crypto'
 
 const hash = (str: string) => createHash('sha512').update(str).digest('hex')
 
@@ -317,7 +316,7 @@ t.test('login broken json error response', async t => {
   })
   await t.rejects(
     tc.awaitLogin('/test/path', res as DeviceAuthorizationSuccessResponse),
-    SyntaxError
+    TierError
   )
   t.equal(tc.clientID, '')
 })
@@ -474,6 +473,93 @@ t.test('stripeOptions', async t => {
     })
     .reply(200, sopt)
   t.strictSame(await TierClient.fromEnv().stripeOptions('org:o'), sopt)
+})
+
+t.test('stripeSetup ok', async t => {
+  const setup_intent = 'seti_qwer_secret_rtyu'
+  const org = 'org:foo'
+  const okSETI = {
+    id: setup_intent,
+    status: 'succeeded',
+    payment_method: 'pm_dolla_dolla_bills',
+    last_setup_error: {},
+    next_action: {
+      redirect_to_url: {},
+    },
+  }
+
+  const api = t.context.api as Nock
+  api
+    .post('/api/v1/stripe/setup', body => {
+      t.strictSame(body, { org, setup_intent })
+      return true
+    })
+    .reply(200, okSETI)
+  t.strictSame(
+    await TierClient.fromEnv().stripeSetup(org, setup_intent),
+    okSETI
+  )
+})
+
+t.test('stripeSetup action needed', async t => {
+  const setup_intent = 'seti_qwer_secret_rtyu'
+  const org = 'org:foo'
+  const notOkSETI = {
+    id: setup_intent,
+    status: 'rejected',
+    last_setup_error: {
+      code: 'foo',
+      doc_url: 'https://en.wikipedia.org/wiki/Foo',
+      message: 'metasyntactic variable used in place of actual currency',
+      param: 'parameter-name',
+      type: 'error',
+    },
+    next_action: {
+      redirect_to_url: {
+        url: 'http://example.com/confirm',
+        return_url: 'http://vendor.com/',
+      },
+    },
+  }
+
+  const api = t.context.api as Nock
+  api
+    .post('/api/v1/stripe/setup', body => {
+      t.strictSame(body, { org, setup_intent })
+      return true
+    })
+    .reply(400, notOkSETI)
+    .post('/api/v1/stripe/setup', body => {
+      t.strictSame(body, { org, setup_intent })
+      return true
+    })
+    .reply(400, { ...notOkSETI, payment_method: { banana: 'buns' } })
+    .post('/api/v1/stripe/setup', body => {
+      t.strictSame(body, { org, setup_intent })
+      return true
+    })
+    .reply(400, { ...notOkSETI, next_action: null })
+
+  try {
+    await TierClient.fromEnv().stripeSetup(org, setup_intent)
+    t.fail('expected stripeSetup to reject')
+  } catch (er) {
+    t.strictSame(er, notOkSETI)
+  }
+
+  try {
+    await TierClient.fromEnv().stripeSetup(org, setup_intent)
+    t.fail('expected stripeSetup to reject')
+  } catch (er) {
+    t.equal(isTierError(er), true)
+  }
+
+  try {
+    await TierClient.fromEnv().stripeSetup(org, setup_intent)
+    t.fail('expected stripeSetup to reject')
+  } catch (er) {
+    t.equal(isTierError(er), true)
+  }
 })
 
 t.test('look up schedule, current plan', async t => {

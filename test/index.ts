@@ -1,4 +1,4 @@
-import { TierClient } from '../lib/index.js'
+import { TierClient, TierError, isTierError } from '../lib/index.js'
 import t from 'tap'
 
 process.env.TIER_API_URL = 'http://127.0.0.1:8888'
@@ -109,4 +109,24 @@ t.test('invalid options that blow up', async t => {
 t.test('need tier_key env or login', async t => {
   delete process.env.TIER_KEY
   t.throws(() => new TierClient())
+})
+
+t.test('isTierError', async t => {
+  t.equal(isTierError(null), false)
+  t.equal(isTierError({}), false)
+  const e = new Error('poop')
+  t.equal(isTierError(e), false)
+  const request = {
+    method: 'GET',
+    url: 'https://example.com/',
+    headers: { foo: 'bar' },
+  }
+  t.equal(isTierError({ message: 'hello', request }), false)
+  const eWithReq:Error & { request: {[k:string]:any}} = Object.assign(e, {
+    request
+  })
+  t.equal(isTierError(eWithReq), false)
+
+  const te = new TierError('hello', request)
+  t.equal(isTierError(te), true)
 })

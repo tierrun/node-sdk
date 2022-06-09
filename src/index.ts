@@ -24,14 +24,14 @@ const uuid =
 // TODO: handle refresh_token flow, right now we just delete
 // automatically when the key expires
 
-interface TierErrorRequest {
+export interface TierErrorRequest {
   method: string
   url: string
   headers: { [k: string]: any }
   body?: any
 }
 
-interface TierErrorResponse {
+export interface TierErrorResponse {
   status: number
   headers: { [k: string]: any }
   body: string
@@ -57,6 +57,9 @@ export class TierError extends Error {
   }
 }
 
+export const isTierError = (er: any): er is TierError =>
+  !!er && typeof er === 'object' && er instanceof TierError
+
 export interface Tier {
   upto?: number
   price?: number
@@ -75,7 +78,7 @@ export interface Feature {
   tiers?: Array<Tier>
 }
 
-type FeaturePrefix = 'feature:'
+export type FeaturePrefix = 'feature:'
 export type FeatureName = `${FeaturePrefix}${string}`
 export interface Plan {
   id?: string
@@ -85,7 +88,7 @@ export interface Plan {
   }
 }
 
-type PlanPrefix = 'plan:'
+export type PlanPrefix = 'plan:'
 export type PlanName = `${PlanPrefix}${string}`
 export interface Model {
   plans: {
@@ -105,6 +108,41 @@ export interface StripeOptions {
   accountID: string
   clientSecret: string
 }
+
+export interface SetupIntent {
+  id: string
+  status: string
+  payment_method?: string
+  last_setup_error: {
+    code?: string
+    decline_code?: string
+    doc_url?: string
+    message?: string
+    param?: string
+    type?: string
+  }
+  next_action: {
+    redirect_to_url: {
+      return_url?: string
+      url?: string
+    }
+    type?: string
+  }
+}
+
+const isSetupIntent = (si: any): si is SetupIntent =>
+  !!si &&
+  typeof si === 'object' &&
+  !!si.id &&
+  typeof si.id === 'string' &&
+  typeof si.status === 'string' &&
+  !!si.status &&
+  (si.payment_method === undefined ||
+    (!!si.payment_method && typeof si.payment_method === 'string')) &&
+  typeof si.last_setup_error === 'object' &&
+  !!si.last_setup_error &&
+  typeof si.next_action?.redirect_to_url === 'object' &&
+  !!si.next_action.redirect_to_url
 
 export interface DeviceAuthorizationSuccessResponse {
   device_code: string
@@ -146,7 +184,7 @@ const USER_AGENT = (() => {
   return `tier ${pkg.name}@${pkg.version} node-fetch/${nfPackage.version} node/${process.version}`
 })()
 
-type OrgPrefix = 'org:'
+export type OrgPrefix = 'org:'
 export type OrgName = `${OrgPrefix}${string}`
 
 interface PhaseFromTierd {
@@ -184,7 +222,7 @@ const toBasic = (key: string) =>
   `Basic ${Buffer.from(key + ':').toString('base64')}`
 const toBearer = (key: string) => `Bearer ${key}`
 
-enum AuthType {
+export enum AuthType {
   BASIC = 'basic',
   BEARER = 'bearer',
 }
@@ -336,6 +374,26 @@ const validSettings = ({
   }
 }
 
+// If the response body was JSON, try to parse and return that
+// If not, throw the original error.
+const tryParseErrorResponse = (er: any) => {
+  if (
+    isTierError(er) &&
+    er.response &&
+    er.response.body &&
+    typeof er.response.body === 'string' &&
+    er.response.headers &&
+    typeof er.response.headers === 'object' &&
+    typeof er.response.headers['content-type'] === 'string' &&
+    er.response.headers['content-type'].startsWith('application/json')
+  ) {
+    try {
+      return JSON.parse(er.response.body)
+    } catch (_) {}
+  }
+  throw er
+}
+
 export class TierClient {
   apiUrl: string
   webUrl: string | undefined
@@ -430,21 +488,7 @@ export class TierClient {
       device_code,
       grant_type,
     })
-      .catch(er => {
-        if (
-          er &&
-          er.response &&
-          er.response.body &&
-          typeof er.response.body === 'string' &&
-          er.response.headers &&
-          typeof er.response.headers === 'object' &&
-          typeof er.response.headers['content-type'] === 'string' &&
-          er.response.headers['content-type'].startsWith('application/json')
-        ) {
-          return JSON.parse(er.response.body)
-        }
-        throw er
-      })
+      .catch(er => tryParseErrorResponse(er))
       .catch(e => {
         this.clientID = ''
         throw e
@@ -542,9 +586,9 @@ export class TierClient {
     try {
       body = await res.text()
       return JSON.parse(body) as T
-    /* c8 ignore start */
+      /* c8 ignore start */
     } catch (er) {
-    /* c8 ignore stop */
+      /* c8 ignore stop */
       const ter = new TierError('tier invalid JSON', reqForError(), {
         status: res.status,
         headers: Object.fromEntries(res.headers.entries()),
@@ -619,6 +663,21 @@ export class TierClient {
   async stripeOptions(org: OrgName): Promise<StripeOptions> {
     return await this.postOK<StripeOptions>('/api/v1/stripe/options', {
       org,
+    })
+  }
+
+  // Call this in the vendor app stripe setup page when we get loaded
+  // with ?setup_intent=...&client_secret=...&status=... in the query
+  async stripeSetup(org: OrgName, setup_intent: string): Promise<SetupIntent> {
+    // note: we may get a non-200 response if stripe had an issue, which
+    // we need to address.  if so, throw the parsed body instead of the
+    // generic TierError.
+    return await this.postOK<SetupIntent>('/api/v1/stripe/setup', {
+      org,
+      setup_intent,
+    }).catch(er => {
+      const si = tryParseErrorResponse(er)
+      throw isSetupIntent(si) ? si : er
     })
   }
 
