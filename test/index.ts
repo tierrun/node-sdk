@@ -57,14 +57,14 @@ t.test('server urls must match', async t => {
     webUrl: undefined,
   })
   t.equal(nonSet.apiUrl, 'https://api.tier.run')
-  t.equal(nonSet.webUrl, 'https://tier.run')
+  t.equal(nonSet.webUrl, 'https://app.tier.run')
 
   const defTierd = new TierClient({
     apiUrl: 'https://api.tier.run',
     webUrl: 'https://example.com',
   })
   t.equal(defTierd.apiUrl, 'https://api.tier.run')
-  t.equal(defTierd.webUrl, 'https://tier.run')
+  t.equal(defTierd.webUrl, 'https://app.tier.run')
 
   const diffTierd = new TierClient({
     apiUrl: 'https://127.0.0.1:8888',
@@ -75,11 +75,11 @@ t.test('server urls must match', async t => {
 
   const diffTierweb = new TierClient({
     apiUrl: 'https://127.0.0.1:8888',
-    webUrl: 'https://tier.run',
+    webUrl: 'https://app.tier.run',
   })
   t.equal(diffTierweb.apiUrl, 'https://127.0.0.1:8888')
   t.equal(diffTierweb.webUrl, undefined)
-  t.equal(diffTierweb.tierJSUrl(), 'https://tier.run/tier.js')
+  t.equal(diffTierweb.tierJSUrl(), 'https://app.tier.run/tier.js')
 })
 
 t.test('empty model returns null', async t => {

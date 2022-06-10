@@ -83,9 +83,9 @@ Options:
 
   --key=<token>    Specify the auth token for Tier to use.
                    Tokens can be generated manually by visiting
-                   <https://tier.run/app/account/tokens>, minted for a project
-                   by running 'tier login', or set in the environment variable
-                   TIER_KEY.
+                   <https://app.tier.run/app/account/tokens>, minted for a
+                   project by running 'tier login', or set in the environment
+                   variable TIER_KEY.
 
   --auth-type=<basic|bearer>
                    Tell Tier to use the specified auth type.  Default: basic

@@ -231,7 +231,7 @@ const isAuthType = (at: any): at is AuthType =>
   typeof at === 'string' && (at === AuthType.BASIC || at === AuthType.BEARER)
 
 const DEFAULT_TIER_API_URL = 'https://api.tier.run'
-const DEFAULT_TIER_WEB_URL = 'https://tier.run'
+const DEFAULT_TIER_WEB_URL = 'https://app.tier.run'
 const DEFAULT_TIER_AUTH_TYPE = AuthType.BASIC
 
 type MaybeSettings = {
@@ -444,7 +444,7 @@ export class TierClient {
   }
 
   tierJSUrl(): string {
-    return String(new URL('/tier.js', this.webUrl || 'https://tier.run'))
+    return String(new URL('/tier.js', this.webUrl || 'https://app.tier.run'))
   }
 
   // validate that a path is allowed, and pick the host to send it to

@@ -1,6 +1,6 @@
 # tier-sdk
 
-SDK for using https://tier.run in Node.js applications
+SDK for using https://app.tier.run in Node.js applications
 
 ## INSTALLING
 
@@ -12,7 +12,7 @@ npm install @tier.run/sdk
 
 This is the SDK that can may be used to integrate Tier into your
 application. More details on the general concepts used by Tier
-may be found at <https://tier.run/docs/>.
+may be found at <https://app.tier.run/docs/>.
 
 ## CLI USAGE
 
@@ -25,13 +25,13 @@ Options:
                    Defaults to TIER_API_URL env, or https://api.tier.run/
 
   --web-url=<url>  Set the tier web server base url to use for login.
-                   Defaults to TIER_WEB_URL env, or https://tier.run/
+                   Defaults to TIER_WEB_URL env, or https://app.tier.run/
 
   --key=<token>    Specify the auth token for Tier to use.
                    Tokens can be generated manually by visiting
-                   <https://tier.run/app/account/tokens>, minted for a project
-                   by running 'tier login', or set in the environment variable
-                   TIER_KEY.
+                   <https://app.tier.run/app/account/tokens>,
+                   minted for a project by running 'tier login',
+                   or set in the environment variable TIER_KEY.
 
   --auth-type=<basic|bearer>
                    Tell Tier to use the specified auth type.  Default: basic
@@ -78,7 +78,7 @@ The default options are likely fine, with the exception of
 `tierKey`, which is of course unique.
 
 - `tierKey`: The API token minted on
-  [tier.run](https://tier.run/app/account/tokens). Defaults to
+  [tier.run](https://app.tier.run/app/account/tokens). Defaults to
   the value of the `TIER_KEY` environment variable.
 - `authStore`: An object implementing `get(cwd, apiUrl)`,
   `set(cwd, apiUrl, token)`, and `delete(cwd, apiUrl)` methods.
@@ -91,7 +91,7 @@ The default options are likely fine, with the exception of
   `https://api.tier.run`. <!-- TODO: move login and pricing
   pages to tierd, and coalesce these into one tierUrl -->
 - `webUrl`: The url to hit for fetches to the `tier.run` website.
-  Default: `https://tier.run` <!-- TODO: move login and pricing
+  Default: `https://app.tier.run` <!-- TODO: move login and pricing
   pages to tierd, and coalesce these into one tierUrl -->
 
 ### `TierClient.fromCwd(options?: TierSettings)`
