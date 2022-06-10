@@ -108,11 +108,62 @@ Return the URL to the `tier.js` browser API. Include this
 ### `tier.stripeOptions(org: OrgName)`
 
 Get the options to pass to the client-side call to
-`tier.paymentForm()`.
+`Tier.paymentForm()`.
 
 Posts to `/api/v1/stripe/options`
 
 <!-- TODO: document tier.js, maybe pull into this library? -->
+
+### `tier.stripeSetup(org: OrgName, setup_intent: string)`
+
+Attempt to attach a payment method from a resolved stripe
+`SetupIntent` ID.
+
+Call this on the server-side when Stripe redirects the user back
+to the page where you called `Tier.paymentForm()`, passing in the
+string provided on the url search params.
+
+The returned promise will resolve with the `{status:
+"succeeded"}` SetupIntent object if the payment method was
+attached.
+
+If the SetupIntent requires additional attention, then the
+Promise will fail with an object indicating what needs to be
+done.
+
+For example:
+
+```js
+import { isTierError, TierClient } from '@tier.run/sdk'
+const tier = TierClient.fromEnv()
+
+// account settings page
+app.get('/account', async (req, res) => {
+  const org = await lookupCurrentLoggedInUserSomehow(req)
+
+  const u = new URL(req.url, 'http://x')
+  if (u.searchParams.has('setup_intent')) {
+    // returning from Stripe payment method setup.
+    try {
+      await tier.stripeSetup(`org:${org}`, u.searchParams.get('setup_intent'))
+      // payment method is now attached!
+    } catch (er) {
+      if (isTierError(er)) {
+        // something bad happened!
+        // handle this like any other server error,
+        // log it, show error page, etc.
+        return serve5xxStatusPage(res, er)
+      } else {
+        // the user has to do something
+        return redirect(res, er.redirect_to_url.url, 303)
+      }
+    }
+  }
+
+  const stripeOptions = await tier.stripeOptions(`org:${org}`)
+  showAccountSetupPage(res)
+})
+```
 
 ### `tier.appendPhase(org: OrgName, plan: PlanName, effective?: Date)`
 

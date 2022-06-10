@@ -130,7 +130,7 @@ export interface SetupIntent {
   }
 }
 
-const isSetupIntent = (si: any): si is SetupIntent =>
+export const isSetupIntent = (si: any): si is SetupIntent =>
   !!si &&
   typeof si === 'object' &&
   !!si.id &&
