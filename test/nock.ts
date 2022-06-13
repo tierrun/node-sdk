@@ -611,7 +611,7 @@ t.test('pull pricing page', async t => {
   }
   const web = t.context.web as Nock
   web
-    .get('/web/pricing-page/')
+    .get('/web/pricing-page/-/')
     .reply(200, defPage)
     .get('/web/pricing-page/-/named')
     .reply(200, namePage)

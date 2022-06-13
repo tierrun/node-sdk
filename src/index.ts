@@ -633,6 +633,7 @@ export class TierClient {
   async pushModel(model: Model): Promise<null> {
     return await this.postOK<null>('/api/v1/push', model)
   }
+
   async pullModel(): Promise<Model | null> {
     const model = await this.getOK<Model>('/api/v1/pull')
     // if the model invalid or empty, return null
@@ -705,7 +706,7 @@ export class TierClient {
   }
 
   async pullPricingPage(name: string = ''): Promise<PricingPage> {
-    const path = `/web/pricing-page/${name ? `-/${name}` : ''}`
+    const path = `/web/pricing-page/-/${name}`
     return await this.getOK<PricingPage>(path)
   }
 
