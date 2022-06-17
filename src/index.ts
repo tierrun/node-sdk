@@ -216,6 +216,41 @@ export interface Schedule {
   [key: string]: any
 }
 
+export interface PaymentMethod {
+  id: string
+  billing_details: {
+    address: {
+      city?: string
+      country?: string
+      line1?: string
+      line2?: string
+      postal_code?: string
+      state?: string
+    }
+    email?: string
+    name?: string
+    phone?: string
+  }
+  card: {
+    brand?: string
+    exp_month?: string
+    exp_year?: string
+    last4?: string
+  }
+}
+
+export interface OrgDetails {
+  id: string
+  name: string
+  default_payment_method?: PaymentMethod
+  delinquent?: boolean
+  discount?: number
+  phone?: string
+  email?: string
+  live_mode: boolean
+  url?: string
+}
+
 const wait = async (n: number) => await new Promise(r => setTimeout(r, n))
 
 const toBasic = (key: string) =>
@@ -680,6 +715,10 @@ export class TierClient {
       const si = tryParseErrorResponse(er)
       throw isSetupIntent(si) ? si : er
     })
+  }
+
+  async lookupOrg(org: OrgName): Promise<OrgDetails> {
+    return this.getOK<OrgDetails>('/api/v1/org?org=' + org)
   }
 
   async lookupSchedule(org: OrgName): Promise<Schedule> {

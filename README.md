@@ -357,6 +357,23 @@ specified.
 
 No side effects, does not increment usage.
 
+### `tier.lookupCustomer(org: OrgName): Promise<CustomerDetails>`
+
+Look up various information about the
+[customer](https://stripe.com/docs/api/customers/object) as it
+exists in Stripe.
+
+Included fields:
+
+* `invoice_settings.default_payment_method` The payment method
+  which will be used to invoice the customer.
+* `delinquent` Boolean
+* `phone`, `email` Customer contact information
+* `discount` A discount applied to the customer, in cents.
+* `live_mode` Boolean. Whether the customer was created in test
+  mode or live mode.
+* `url` A deep link into the Stripe dashboard for this customer.
+
 ### `tier.lookupSchedule(org: OrgName): Promise<Schedule>`
 
 Look up the org's schedule. This includes a `phases` list of

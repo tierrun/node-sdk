@@ -593,6 +593,35 @@ t.test('look up schedule, current plan', async t => {
   t.strictSame(await tc.lookupCurrentPlan('org:o'), 'plan:p@1')
 })
 
+t.test('look up org details', async t => {
+  const ghisaacs = {
+    id: 'org:github:user:9287',
+    name: 'org:github:user:9287',
+    default_payment_method: {
+      billing_details: {
+        address: {
+          country: 'US',
+          postal_code: '42424',
+        },
+      },
+      card: {
+        brand: 'visa',
+        exp_month: 4,
+        exp_year: 2024,
+        last4: '4242',
+      },
+    },
+    live_mode: false,
+    url: 'https:/dashboard.stripe.com/test/connect/accounts/acct_xxxxxxxxxxxxxxxx/customers/cus_yyyyyyyyyyyyyy',
+  }
+
+  const api = t.context.api as Nock
+  api.get('/api/v1/org?org=org:github:user:9287').reply(200, ghisaacs)
+
+  const tc = TierClient.fromEnv()
+  t.strictSame(await tc.lookupOrg('org:github:user:9287'), ghisaacs)
+})
+
 t.test('pull pricing page', async t => {
   const defPage = {
     name: 'default',
