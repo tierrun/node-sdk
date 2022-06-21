@@ -123,8 +123,7 @@ Call this on the server-side when Stripe redirects the user back
 to the page where you called `Tier.paymentForm()`, passing in the
 string provided on the url search params.
 
-The returned promise will resolve with the `{status:
-"succeeded"}` SetupIntent object if the payment method was
+The returned promise will resolve with the `{status: "succeeded"}` SetupIntent object if the payment method was
 attached.
 
 If the SetupIntent requires additional attention, then the
@@ -188,8 +187,13 @@ All of the methods in this section post to `/api/v1/reserve`.
 Returned by `tier.reserve()`
 
 - Properties:
-  - `org`, `feature`, `n`, `now` The values used to make this
+  - `org`, `feature`, `count`, `now` The values used to make this
     reservation.
+  - `isRefund` True if the reservation represents a refund of an
+    earlier reservation.
+  - `committed` True if the reservation has been committed, and
+    thus can no longer be refunded.
+  - `refunded` True if the reservation has been refunded.
   - `used` The number of units of the feature that the org has
     used once the reservation was made, or `-1` if the org
     does not have the feature available on their plan.
@@ -203,15 +207,18 @@ Returned by `tier.reserve()`
     org does not have the feature available on their plan.
   - `allowed` The number of units of the feature that the org
     _should_ be allowed to consume with this reservation. Ie,
-    the value of `n`, minus any overages.
+    the value of `count`, minus any overages.
   - `remaining` The number of units of the feature that the org
     is allowed to consume in total.
 - Methods
-  - `cancel() => Reservation` Roll back the reservation. For
+  - `refund() => Reservation` Roll back the reservation. For
     example, use this if the total amount is not allowed, and
     you do not wish to leave them in an overage state, or if
     the feature could not be delivered to the user for some
     reason. Returns a reservation for the negative amount.
+  - `commit()` Disable refunding the reservation. After calling
+    `commit()`, a refund will do nothing and return the original
+    reservation, rather than a refund reservation.
 
 ##### Simple Example
 
@@ -225,7 +232,7 @@ if (res.ok) {
     consumeOneFoo('acme')
   } catch (er) {
     // oh no!  it failed!  don't charge them for it
-    await res.cancel()
+    await res.refund()
   }
 } else {
   // suggest they buy a bigger plan, maybe?
@@ -233,7 +240,7 @@ if (res.ok) {
 }
 ```
 
-##### Example with `n > 1`, partial fulfillment
+##### Example with `count > 1`, partial fulfillment
 
 If the number we're trying to reserve is greater than the amount
 allowed, we may end up in a case where _some_ is allowed, but not
@@ -260,12 +267,12 @@ if (!res.ok) {
   } catch (er) {
     // oh no!  we failed to consume the foos!
     // make sure they aren't charged for them
-    await res.cancel()
+    await res.refund()
   }
 }
 ```
 
-##### Example with `n > 1`, all or nothing
+##### Example with `count > 1`, all or nothing
 
 Maybe the feature cannot be split up in that fashion. For
 example, perhaps we are checking disk space usage when the
@@ -282,12 +289,36 @@ if (res.ok) {
     return consumeTenFoos('acme')
   } catch (er) {
     // our feature failed, roll back the reservation
-    await res.cancel()
+    await res.refund()
   }
 } else {
-  await res.cancel()
+  await res.refund()
   showSorryYouNeedToUpgradeMessage('acme')
 }
+```
+
+##### Example with `res.commit()` usage
+
+Typically, if a feature fails or throws, we might want to refund
+so that the user is not charged. But if something _else_ throws,
+we don't necessarily want to accidentally issue a refund for some
+consumed resource.
+
+In situations like these, we can use `res.commit()` to make any
+subsequent refund attempts a no-op. This can also just be a
+convenient way to structure your application code.
+
+```js
+const res = await tier.reserve('org:acme', 'feature:foo', 10)
+if (res.ok) {
+  await consumeTenFoos('acme')
+  res.commit()
+} else {
+  showSorryYouNeedToUpgradeMessage('acme')
+}
+// If we hit the commit() call, then this does nothing.
+// otherwise, do not charge them for the usage.
+await res.refund()
 ```
 
 ##### Example with soft limit
@@ -306,7 +337,7 @@ if (await tier.can('org:acme', 'feature:foo')) {
       showMessage('acme', 'This is your last foo, need to upgrade')
     }
   } catch (er) {
-    await res.cancel()
+    await res.refund()
   }
 } else {
   // not entitled to feature
@@ -314,9 +345,9 @@ if (await tier.can('org:acme', 'feature:foo')) {
 }
 ```
 
-#### `tier.reserve(org, feature, n = 1, now = new Date())`
+#### `tier.reserve(org, feature, count = 1, now = new Date())`
 
-Reserve `n` units of feature usage for the specified org, and
+Reserve `count` units of feature usage for the specified org, and
 return the resulting used/limit amounts after making the
 reservation. No guards against overages or limits.
 
@@ -330,7 +361,7 @@ object reflecting the current usage state.
 
 No side effects, does not increment usage.
 
-#### `tier.can(org, feature, n = 1, now = new Date())`
+#### `tier.can(org, feature, count = 1, now = new Date())`
 
 Returns true if the org is allowed to consume the feature in the
 amount specified (default: 1) as of the `now` date specified.
@@ -347,7 +378,7 @@ if (await tier.can(org, feature, 10)) {
 }
 ```
 
-#### `tier.cannot(org, feature, n = 1, now = new Date())`
+#### `tier.cannot(org, feature, count = 1, now = new Date())`
 
 Inverse of `can()`.
 
@@ -365,14 +396,14 @@ exists in Stripe.
 
 Included fields:
 
-* `invoice_settings.default_payment_method` The payment method
+- `invoice_settings.default_payment_method` The payment method
   which will be used to invoice the customer.
-* `delinquent` Boolean
-* `phone`, `email` Customer contact information
-* `discount` A discount applied to the customer, in cents.
-* `live_mode` Boolean. Whether the customer was created in test
+- `delinquent` Boolean
+- `phone`, `email` Customer contact information
+- `discount` A discount applied to the customer, in cents.
+- `live_mode` Boolean. Whether the customer was created in test
   mode or live mode.
-* `url` A deep link into the Stripe dashboard for this customer.
+- `url` A deep link into the Stripe dashboard for this customer.
 
 ### `tier.lookupSchedule(org: OrgName): Promise<Schedule>`
 

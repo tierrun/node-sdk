@@ -8,6 +8,7 @@ type MockClient = Pick<TierClient, Methods> & {
   used: number
   reserved: null | Reservation
   limit: number
+  refund: (res: Reservation) => Promise<Reservation>
 }
 const client: MockClient = {
   reserved: null,
@@ -18,23 +19,32 @@ const client: MockClient = {
   cannot: TierClient.prototype.cannot,
   currentUsage: TierClient.prototype.currentUsage,
 
+  async refund(res: Reservation) {
+    return TierClient.prototype.refund.call(this, res)
+  },
+
   async reserve(
     org: OrgName,
     feature: FeatureName,
-    n: number,
-    now: Date | string | number = new Date()
+    count: number,
+    now: Date | string | number = new Date(),
+    refund?: Symbol // private symbol
   ): Promise<Reservation> {
     now = new Date(now)
+    const delta = refund ? -1 * count : count
     return new Reservation(
       this as unknown as TierClient,
       org,
       feature,
-      n,
+      count,
       now,
       {
-        used: (this.used += n),
+        used: (this.used += delta),
         limit: this.limit,
-      }
+        org,
+        feature,
+      },
+      !!refund,
     )
   },
 }
@@ -44,7 +54,7 @@ t.test('basic reservation', async t => {
   t.match(res, {
     org: 'org:o',
     feature: 'feature:f',
-    n: 1,
+    count: 1,
     now: Date,
     used: 1,
     limit: 10,
@@ -61,7 +71,7 @@ t.test('too many, cancel it', async t => {
   t.match(res, {
     org: 'org:o',
     feature: 'feature:f',
-    n: 10,
+    count: 10,
     now: Date,
     used: 11,
     limit: 10,
@@ -72,7 +82,8 @@ t.test('too many, cancel it', async t => {
   })
   t.equal(client.used, 11)
   t.equal(client.limit, 10)
-  await res.cancel()
+  const refund = await res.refund()
+  t.rejects(refund.refund(), { message: 'cannot refund a refund' })
   t.equal(client.used, 1)
   t.equal(client.limit, 10)
   t.end()
@@ -85,7 +96,7 @@ t.test('not part of plan', async t => {
   t.match(res, {
     org: 'org:o',
     feature: 'feature:f',
-    n: 0,
+    count: 0,
     now: Date,
     used: -1,
     limit: -2,

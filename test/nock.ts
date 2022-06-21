@@ -658,7 +658,8 @@ t.test('reserve', async t => {
       t.match(body, {
         org,
         feature: 'feature:f',
-        n: 1,
+        op: 'incr',
+        p: 1,
         now: dateRE,
       })
       return true
@@ -668,7 +669,8 @@ t.test('reserve', async t => {
       t.match(body, {
         org,
         feature: 'feature:nope',
-        n: 1,
+        op: 'incr',
+        p: 1,
         now: dateRE,
       })
       return true
@@ -678,7 +680,8 @@ t.test('reserve', async t => {
       t.match(body, {
         org,
         feature: 'feature:overage',
-        n: 1,
+        op: 'incr',
+        p: 1,
         now: dateRE,
       })
       return true
@@ -688,7 +691,8 @@ t.test('reserve', async t => {
       t.match(body, {
         org,
         feature: 'feature:someAllowed',
-        n: 10,
+        op: 'incr',
+        p: 10,
         now: dateRE,
       })
       return true
@@ -698,7 +702,8 @@ t.test('reserve', async t => {
       t.match(body, {
         org,
         feature: 'feature:someAllowed',
-        n: -10,
+        op: 'decr',
+        n: 10,
         now: dateRE,
       })
       return true
@@ -711,7 +716,7 @@ t.test('reserve', async t => {
   t.match(allowed, {
     org: 'org:o',
     feature: 'feature:f',
-    n: 1,
+    count: 1,
     now: Date,
     used: 99,
     limit: 100,
@@ -720,13 +725,20 @@ t.test('reserve', async t => {
     allowed: 1,
     ok: true,
   })
+  t.equal(allowed.committed, false)
+  allowed.commit()
+  t.equal(allowed.committed, true)
+
+  t.rejects(tc.reserve('org:o', 'feature:nope', -1), {
+    message: 'count must be >= 0',
+  })
 
   const nope = await tc.reserve(org, 'feature:nope')
   t.type(nope, Reservation)
   t.match(nope, {
     org: 'org:o',
     feature: 'feature:nope',
-    n: 1,
+    count: 1,
     now: Date,
     used: -1,
     limit: -2,
@@ -735,13 +747,19 @@ t.test('reserve', async t => {
     allowed: 0,
     ok: false,
   })
+  // calls nope.commit()
+  tc.commit(nope)
+  t.equal(nope.committed, true)
+  t.equal(await tc.refund(nope), nope)
+  t.equal(await nope.refund(), nope)
+  t.equal(nope.refunded, false)
 
   const overage = await tc.reserve(org, 'feature:overage')
   t.type(overage, Reservation)
   t.match(overage, {
     org: 'org:o',
     feature: 'feature:overage',
-    n: 1,
+    count: 1,
     now: Date,
     used: 100,
     limit: 99,
@@ -756,7 +774,7 @@ t.test('reserve', async t => {
   t.match(someAllowed, {
     org: 'org:o',
     feature: 'feature:someAllowed',
-    n: 10,
+    count: 10,
     now: Date,
     used: 20,
     limit: 15,
@@ -764,14 +782,23 @@ t.test('reserve', async t => {
     overage: 5,
     allowed: 5,
     ok: false,
+    isRefund: false,
   })
 
-  const allowedRevert = await someAllowed.cancel()
+  t.equal(someAllowed.cancel, someAllowed.refund)
+  const p = someAllowed.refund()
+  t.equal(someAllowed.refunded, false)
+  // cannot refund while refunding
+  t.rejects(someAllowed.refund(), { message: 'cannot refund more than once' })
+  const allowedRevert = await p
+  t.equal(someAllowed.refunded, true)
+  // cannot refund after refunding
+  t.rejects(someAllowed.refund(), { message: 'cannot refund more than once' })
   t.type(allowedRevert, Reservation)
   t.match(allowedRevert, {
     org: 'org:o',
     feature: 'feature:someAllowed',
-    n: -10,
+    count: 10,
     now: Date,
     used: 10,
     limit: 15,
@@ -779,5 +806,6 @@ t.test('reserve', async t => {
     overage: 0,
     allowed: 5,
     ok: true,
+    isRefund: true,
   })
 })

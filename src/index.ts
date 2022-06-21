@@ -10,6 +10,8 @@ import { encode } from 'querystring'
 import { AuthStore, defaultAuthStore } from './auth-store'
 import { Reservation, ReservationFromTierd } from './reservation'
 
+const REFUND = Symbol('tier refund')
+
 // old node versions don't have a randomUUID method
 /* c8 ignore start */
 const uuid =
@@ -429,6 +431,8 @@ const tryParseErrorResponse = (er: any) => {
   throw er
 }
 
+type Operation = 'incr' | 'decr' // TODO: 'clobber' | 'gincr' | 'gdecr'
+
 export class TierClient {
   apiUrl: string
   webUrl: string | undefined
@@ -759,28 +763,46 @@ export class TierClient {
 
   /**
    * Reserve N units of feature usage for the specified org, and return
-   * a cancelable Reservation object.
+   * a refundable Reservation object.
    */
   async reserve(
     org: OrgName,
     feature: FeatureName,
-    n: number = 1,
-    now: Date | string | number = new Date()
+    count: number = 1,
+    now: Date | string | number = new Date(),
+    refund?: typeof REFUND
   ): Promise<Reservation> {
+    if (count < 0) {
+      throw new TypeError('count must be >= 0')
+    }
+
+    const isRefund = refund === REFUND
+    const op: Operation = isRefund ? 'decr' : 'incr'
+    const numberField = isRefund ? 'n' : 'p'
+
     now = new Date(now)
-    return new Reservation(
-      this,
+    const resTier = await this.postOK<ReservationFromTierd>('/api/v1/reserve', {
       org,
       feature,
-      n,
-      now,
-      await this.postOK<ReservationFromTierd>('/api/v1/reserve', {
-        org,
-        feature,
-        n,
-        now: new Date(now).toISOString(),
-      })
-    )
+      [numberField]: count,
+      op,
+      now: new Date(now).toISOString(),
+    })
+    return new Reservation(this, org, feature, count, now, resTier, isRefund)
+  }
+
+  async commit(res: Reservation) {
+    return res.commit()
+  }
+
+  async refund(res: Reservation) {
+    if (res.isRefund) {
+      throw new Error('cannot refund a refund')
+    }
+    if (res.committed) {
+      return res
+    }
+    return this.reserve(res.org, res.feature, res.count, new Date(), REFUND)
   }
 
   // convenience wrappers for reserve()
