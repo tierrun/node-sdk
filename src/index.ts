@@ -441,7 +441,10 @@ export class TierClient {
   clientID: string
   authStore: AuthStore
 
-  static fromCwd(cwd: string, options: MaybeSettings = {}): TierClient {
+  static fromCwd(
+    cwd: string = process.cwd(),
+    options: MaybeSettings = {}
+  ): TierClient {
     const {
       authStore = defaultAuthStore,
       apiUrl,
