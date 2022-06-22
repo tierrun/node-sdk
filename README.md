@@ -388,7 +388,7 @@ specified.
 
 No side effects, does not increment usage.
 
-### `tier.lookupCustomer(org: OrgName): Promise<CustomerDetails>`
+### `tier.lookupCustomer(org: OrgName): Promise<OrgDetails>`
 
 Look up various information about the
 [customer](https://stripe.com/docs/api/customers/object) as it
@@ -396,8 +396,8 @@ exists in Stripe.
 
 Included fields:
 
-- `invoice_settings.default_payment_method` The payment method
-  which will be used to invoice the customer.
+- `default_payment_method` The payment method which will be used
+  to invoice the customer.
 - `delinquent` Boolean
 - `phone`, `email` Customer contact information
 - `discount` A discount applied to the customer, in cents.
