@@ -805,7 +805,7 @@ export class TierClient {
     if (res.committed) {
       return res
     }
-    return this.reserve(res.org, res.feature, res.count, new Date(), REFUND)
+    return this.reserve(res.org, res.feature, res.count, res.now, REFUND)
   }
 
   // convenience wrappers for reserve()
