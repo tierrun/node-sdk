@@ -657,14 +657,22 @@ export class TierClient {
     })
   }
 
-  async postOK<T>(path: string, body: { [key: string]: any }): Promise<T> {
+  async postOK<T>(
+    path: string,
+    body: Buffer | string | { [key: string]: any }
+  ): Promise<T> {
     this.debug(`POST ${path}`, body)
+    const b: Buffer =
+      Buffer.isBuffer(body) ? body
+        : typeof body === 'string' ? Buffer.from(body)
+        : Buffer.from(JSON.stringify(body))
     return await this.fetchOK<T>(path, {
       method: 'POST',
       headers: {
+        'content-length': String(b.length),
         'content-type': 'application/json',
       },
-      body: JSON.stringify(body),
+      body: b,
     })
   }
 
@@ -672,7 +680,7 @@ export class TierClient {
     return await this.getOK<any>('/api/v1/whoami')
   }
 
-  async pushModel(model: Model): Promise<null> {
+  async pushModel(model: Model | string | Buffer): Promise<null> {
     return await this.postOK<null>('/api/v1/push', model)
   }
 

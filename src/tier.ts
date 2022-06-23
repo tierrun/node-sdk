@@ -304,8 +304,7 @@ const doPush: Command = async (argv: string[]): Promise<void> => {
     return pushUsage(new Error('must supply filename'))
   }
   try {
-    const data = JSON.parse(readFileSync(fname, 'utf8'))
-    console.log(await getClient().pushModel(data))
+    console.log(await getClient().pushModel(readFileSync(fname)))
   } catch (er) {
     pushUsage(er)
   }

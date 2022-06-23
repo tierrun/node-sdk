@@ -426,10 +426,15 @@ t.test('pushModel, pullModel', async t => {
       t.strictSame(body, model)
       return true
     })
+    .times(3)
     .reply(200, 'null')
     .get('/api/v1/pull')
     .reply(200, model)
+
   t.equal(await TierClient.fromEnv().pushModel(model), null)
+  t.equal(await TierClient.fromEnv().pushModel(JSON.stringify(model)), null)
+  t.equal(await TierClient.fromEnv().pushModel(Buffer.from(JSON.stringify(model))), null)
+
   t.strictSame(await TierClient.fromEnv().pullModel(), model)
 })
 
