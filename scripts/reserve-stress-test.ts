@@ -90,6 +90,18 @@ const counts: { [k: string]: number } = {}
 
 let refundCounter: number = 0
 
+const eq = (a: any, b: any, c: any) => {
+  let threw = true
+  try {
+    equal(a, b)
+    threw = false
+  } finally {
+    if (threw) {
+      console.error('failed assertion', a, b, c)
+    }
+  }
+}
+
 const res = async (o: OrgName, f: FeatureName, count = 1) => {
   if (!timing[f]) {
     timing[f] = {}
@@ -104,16 +116,16 @@ const res = async (o: OrgName, f: FeatureName, count = 1) => {
   counts[f] = (counts[f] || 0) + count
   switch (f) {
     case 'feature:inf':
-      equal(rsv.ok, true)
+      eq(rsv.ok, true, rsv)
       break
     case 'feature:hundred':
-      equal(rsv.ok, counts[f] <= 100)
+      eq(rsv.ok, counts[f] <= 100, { rsv, count: counts[f] })
       break
     case 'feature:thousand':
-      equal(rsv.ok, counts[f] <= 1000)
+      eq(rsv.ok, counts[f] <= 1000, { rsv, count: counts[f] })
       break
     case 'feature:10k':
-      equal(rsv.ok, counts[f] <= 10000)
+      eq(rsv.ok, counts[f] <= 10000, { rsv, count: counts[f] })
       break
   }
 
@@ -144,7 +156,7 @@ const refund = async (rsv: Reservation) => {
 
 const checkUsed = async (o: OrgName, f: FeatureName) => {
   const rsv = await res(o, f, 0)
-  equal(rsv.used, counts[f])
+  eq(rsv.used, counts[f], { rsv, count: counts[f] })
 }
 
 const shuffle = (a: any[]): any[] => {
@@ -173,7 +185,7 @@ const main = async () => {
     process.stdout.write('.')
   }
   console.log('did appendPhase')
-  await new Promise(r => setTimeout(r, 1000))
+  await new Promise(r => setTimeout(r, 5000))
   console.log('trying first reserve...')
   let maxTries = 1000
   while (
