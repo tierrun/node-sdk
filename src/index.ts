@@ -587,6 +587,21 @@ export class TierClient {
     options.headers.set('user-agent', USER_AGENT)
     options.headers.set('accept', 'application/json')
 
+    let errorReqBody = options.body
+    if (Buffer.isBuffer(options.body)) {
+      errorReqBody = options.body.toString()
+    }
+    if (
+      typeof errorReqBody === 'string' &&
+      options.headers.get('content-type') === 'application/json'
+    ) {
+      try {
+        errorReqBody = JSON.parse(errorReqBody)
+      /* c8 ignore start */
+      } catch (_) {}
+      /* c8 ignore stop */
+    }
+
     const reqForError = () => ({
       method: options.method || 'GET',
       url,
@@ -596,7 +611,7 @@ export class TierClient {
           k === 'authorization' ? '(redacted)' : v,
         ])
       ),
-      body: options.body,
+      body: errorReqBody,
     })
     this.debug(reqForError())
 
@@ -662,10 +677,11 @@ export class TierClient {
     body: Buffer | string | { [key: string]: any }
   ): Promise<T> {
     this.debug(`POST ${path}`, body)
-    const b: Buffer =
-      Buffer.isBuffer(body) ? body
-        : typeof body === 'string' ? Buffer.from(body)
-        : Buffer.from(JSON.stringify(body))
+    const b: Buffer | string = Buffer.isBuffer(body)
+      ? body
+      : typeof body === 'string'
+      ? Buffer.from(body)
+      : Buffer.from(JSON.stringify(body))
     return await this.fetchOK<T>(path, {
       method: 'POST',
       headers: {
