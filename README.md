@@ -225,14 +225,14 @@ Returned by `tier.reserve()`
 Our customer is attempting to consume 1 of the `foo` feature.
 
 ```js
-const res = await tier.reserve('org:acme', 'feature:foo')
-if (res.ok) {
+const rsv = await tier.reserve('org:acme', 'feature:foo')
+if (rsv.ok) {
   // proceed, all is good
   try {
     consumeOneFoo('acme')
   } catch (er) {
     // oh no!  it failed!  don't charge them for it
-    await res.refund()
+    await rsv.refund()
   }
 } else {
   // suggest they buy a bigger plan, maybe?
@@ -250,12 +250,12 @@ Let them consume the bit that they're allowed, but only that
 much.
 
 ```js
-const res = await tier.reserve('org:acme', 'feature:foo', 10)
-if (!res.ok) {
+const rsv = await tier.reserve('org:acme', 'feature:foo', 10)
+if (!rsv.ok) {
   // user not allowed to consume 10 foos
-  if (res.allowed > 0) {
+  if (rsv.allowed > 0) {
     // but they are allowed to consume SOME foos
-    return consumeSomeFoo('acme', res.allowed)
+    return consumeSomeFoo('acme', rsv.allowed)
   } else {
     // not allowed any at all
     return fooNotAllowed('acme')
@@ -267,7 +267,7 @@ if (!res.ok) {
   } catch (er) {
     // oh no!  we failed to consume the foos!
     // make sure they aren't charged for them
-    await res.refund()
+    await rsv.refund()
   }
 }
 ```
@@ -283,42 +283,42 @@ In this case, we don't want to use up their remaining allocation
 on something we didn't actually do.
 
 ```js
-const res = await tier.reserve('org:acme', 'feature:foo', 10)
-if (res.ok) {
+const rsv = await tier.reserve('org:acme', 'feature:foo', 10)
+if (rsv.ok) {
   try {
     return consumeTenFoos('acme')
   } catch (er) {
     // our feature failed, roll back the reservation
-    await res.refund()
+    await rsv.refund()
   }
 } else {
-  await res.refund()
+  await rsv.refund()
   showSorryYouNeedToUpgradeMessage('acme')
 }
 ```
 
-##### Example with `res.commit()` usage
+##### Example with `rsv.commit()` usage
 
 Typically, if a feature fails or throws, we might want to refund
 so that the user is not charged. But if something _else_ throws,
 we don't necessarily want to accidentally issue a refund for some
 consumed resource.
 
-In situations like these, we can use `res.commit()` to make any
+In situations like these, we can use `rsv.commit()` to make any
 subsequent refund attempts a no-op. This can also just be a
 convenient way to structure your application code.
 
 ```js
-const res = await tier.reserve('org:acme', 'feature:foo', 10)
-if (res.ok) {
+const rsv = await tier.reserve('org:acme', 'feature:foo', 10)
+if (rsv.ok) {
   await consumeTenFoos('acme')
-  res.commit()
+  rsv.commit()
 } else {
   showSorryYouNeedToUpgradeMessage('acme')
 }
 // If we hit the commit() call, then this does nothing.
 // otherwise, do not charge them for the usage.
-await res.refund()
+await rsv.refund()
 ```
 
 ##### Example with soft limit
@@ -330,14 +330,14 @@ amount puts them into an overage state, we just let them proceed.
 // at least 1 is allowed
 if (await tier.can('org:acme', 'feature:foo')) {
   const howMany = await figureOutFooCount('acme')
-  const res = await tier.reserve('org:acme', 'feature:foo', howMany)
+  const rsv = await tier.reserve('org:acme', 'feature:foo', howMany)
   try {
     consumeSomeFoos('acme', howMany)
-    if (!res.remaining) {
+    if (!rsv.remaining) {
       showMessage('acme', 'This is your last foo, need to upgrade')
     }
   } catch (er) {
-    await res.refund()
+    await rsv.refund()
   }
 } else {
   // not entitled to feature
