@@ -388,9 +388,9 @@ specified.
 
 No side effects, does not increment usage.
 
-### `tier.lookupCustomer(org: OrgName): Promise<OrgDetails>`
+### `tier.lookupOrg(org: OrgName): Promise<OrgDetails>`
 
-Look up various information about the
+Look up various information about the org's associated
 [customer](https://stripe.com/docs/api/customers/object) as it
 exists in Stripe.
 
