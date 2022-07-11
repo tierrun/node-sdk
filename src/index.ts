@@ -597,7 +597,7 @@ export class TierClient {
     ) {
       try {
         errorReqBody = JSON.parse(errorReqBody)
-      /* c8 ignore start */
+        /* c8 ignore start */
       } catch (_) {}
       /* c8 ignore stop */
     }
@@ -789,6 +789,18 @@ export class TierClient {
   /* c8 ignore stop */
 
   /**
+   * Record `count` units of usage for the given org and feature.
+   */
+  async record(
+    org: OrgName,
+    feature: FeatureName,
+    count: number = 1,
+    now: Date | string | number = new Date()
+  ): Promise<void> {
+    await this.reserve(org, feature, count, now)
+  }
+
+  /**
    * Reserve N units of feature usage for the specified org, and return
    * a refundable Reservation object.
    */
@@ -860,6 +872,7 @@ export class TierClient {
     n: number = 1,
     now: Date | number | string = new Date()
   ): Promise<boolean> {
+    // XXX: refactor this when /api/v1/reserve changes
     const res = await this.currentUsage(org, feature, now)
     const rem = res.limit - res.used
     return rem >= n

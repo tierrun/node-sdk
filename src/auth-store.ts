@@ -83,9 +83,9 @@ export const defaultAuthStore: AuthStore = {
         throw new Error('no access_token found in record')
       }
       return token
-    /* c8 ignore start */
+      /* c8 ignore start */
     } catch (er) {
-    /* c8 ignore stop */
+      /* c8 ignore stop */
       defaultAuthStore.debug(cwd, er)
       defaultAuthStore.delete(cwd, apiUrl)
     }

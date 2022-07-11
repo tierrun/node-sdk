@@ -44,7 +44,7 @@ const client: MockClient = {
         org,
         feature,
       },
-      !!refund,
+      !!refund
     )
   },
 }

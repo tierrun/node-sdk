@@ -171,195 +171,105 @@ the `effective` date is the current time.
 
 Posts to `/api/v1/append`
 
-### Reservations
-
-In order to record usage, Tier calls the `reserve` API.
+### Recording and Checking Usage
 
 Usage and limit amounts are based on best available data at the
 moment recorded. Amounts reported by the Tier API are eventually
 consistent, usually within a few ms. <!-- TKTK: figure out what
 actual SLA/reliability guarantee we can make here -->
 
-All of the methods in this section post to `/api/v1/reserve`.
+Check that a user has access to a feature (ie, it's included in
+their plan, and they are not over their limit) using
+`tier.can()`. When a feature is successfully consumed, call
+`tier.record()` to tell Tier about it.
 
-#### Class `Reservation`
+#### Simple Example
 
-Returned by `tier.reserve()`
-
-- Properties:
-  - `org`, `feature`, `count`, `now` The values used to make this
-    reservation.
-  - `isRefund` True if the reservation represents a refund of an
-    earlier reservation.
-  - `committed` True if the reservation has been committed, and
-    thus can no longer be refunded.
-  - `refunded` True if the reservation has been refunded.
-  - `used` The number of units of the feature that the org has
-    used once the reservation was made, or `-1` if the org
-    does not have the feature available on their plan.
-  - `limit` The limit of units of the feature that the org is
-    allowed, or `-2` if the org does not have the feature
-    available on their plan.
-  - `ok` True if the reservation was successful and the org
-    has not gone into an overage state.
-  - `overage` The number of units of the feature that the org
-    has consumed above their plan limit. Set to `1` if the
-    org does not have the feature available on their plan.
-  - `allowed` The number of units of the feature that the org
-    _should_ be allowed to consume with this reservation. Ie,
-    the value of `count`, minus any overages.
-  - `remaining` The number of units of the feature that the org
-    is allowed to consume in total.
-- Methods
-  - `refund() => Reservation` Roll back the reservation. For
-    example, use this if the total amount is not allowed, and
-    you do not wish to leave them in an overage state, or if
-    the feature could not be delivered to the user for some
-    reason. Returns a reservation for the negative amount.
-  - `commit()` Disable refunding the reservation. After calling
-    `commit()`, a refund will do nothing and return the original
-    reservation, rather than a refund reservation.
-
-##### Simple Example
-
-Our customer is attempting to consume 1 of the `foo` feature.
+Our customer is attempting to consume 1 of the `foo` feature. We
+should allow if they're not over their limit, and record it once
+the feature is delivered.
 
 ```js
-const rsv = await tier.reserve('org:acme', 'feature:foo')
-if (rsv.ok) {
-  // proceed, all is good
-  try {
-    consumeOneFoo('acme')
-  } catch (er) {
-    // oh no!  it failed!  don't charge them for it
-    await rsv.refund()
-  }
+if (await tier.can('org:acme', 'feature:foo')) {
+  consumeOneFoo('acme')
+  await tier.record('org:acme', 'feature:foo')
 } else {
   // suggest they buy a bigger plan, maybe?
   showUpgradePlanUX('acme')
 }
 ```
 
-##### Example with `count > 1`, partial fulfillment
+#### Example with `count > 1`
 
-If the number we're trying to reserve is greater than the amount
-allowed, we may end up in a case where _some_ is allowed, but not
-_all_ of the amount.
-
-Let them consume the bit that they're allowed, but only that
-much.
+In this case, the user might have remaining usage allowed by
+their plan, but not enough to do what we're trying.
 
 ```js
-const rsv = await tier.reserve('org:acme', 'feature:foo', 10)
-if (!rsv.ok) {
-  // user not allowed to consume 10 foos
-  if (rsv.allowed > 0) {
-    // but they are allowed to consume SOME foos
-    return consumeSomeFoo('acme', rsv.allowed)
-  } else {
-    // not allowed any at all
-    return fooNotAllowed('acme')
-  }
-} else {
-  // totally fine, proceed
-  try {
-    return consumeTenFoos('acme')
-  } catch (er) {
-    // oh no!  we failed to consume the foos!
-    // make sure they aren't charged for them
-    await rsv.refund()
-  }
-}
-```
-
-##### Example with `count > 1`, all or nothing
-
-Maybe the feature cannot be split up in that fashion. For
-example, perhaps we are checking disk space usage when the
-customer tries to upload a file, so allowing only _part_ of the
-file upload doesn't make much sense.
-
-In this case, we don't want to use up their remaining allocation
-on something we didn't actually do.
-
-```js
-const rsv = await tier.reserve('org:acme', 'feature:foo', 10)
-if (rsv.ok) {
-  try {
-    return consumeTenFoos('acme')
-  } catch (er) {
-    // our feature failed, roll back the reservation
-    await rsv.refund()
-  }
-} else {
-  await rsv.refund()
-  showSorryYouNeedToUpgradeMessage('acme')
-}
-```
-
-##### Example with `rsv.commit()` usage
-
-Typically, if a feature fails or throws, we might want to refund
-so that the user is not charged. But if something _else_ throws,
-we don't necessarily want to accidentally issue a refund for some
-consumed resource.
-
-In situations like these, we can use `rsv.commit()` to make any
-subsequent refund attempts a no-op. This can also just be a
-convenient way to structure your application code.
-
-```js
-const rsv = await tier.reserve('org:acme', 'feature:foo', 10)
-if (rsv.ok) {
-  await consumeTenFoos('acme')
-  rsv.commit()
+if (await tier.can('org:acme', 'feature:foo', 10)) {
+  consumeTenFoos('acme')
+  await tier.record('org:acme', 'feature:foo', 10)
 } else {
   showSorryYouNeedToUpgradeMessage('acme')
 }
-// If we hit the commit() call, then this does nothing.
-// otherwise, do not charge them for the usage.
-await rsv.refund()
 ```
 
-##### Example with soft limit
+#### Out of Band Checking/Recording, On Completion
 
-Here, we check to see if they're allowed any, but if the actual
-amount puts them into an overage state, we just let them proceed.
+Sometimes a "feature" is not a single function call. We might
+kick off a series of events or chain of messages, and only
+want to charge the user if the entire process succeeds.
 
 ```js
-// at least 1 is allowed
 if (await tier.can('org:acme', 'feature:foo')) {
-  const howMany = await figureOutFooCount('acme')
-  const rsv = await tier.reserve('org:acme', 'feature:foo', howMany)
-  try {
-    consumeSomeFoos('acme', howMany)
-    if (!rsv.remaining) {
-      showMessage('acme', 'This is your last foo, need to upgrade')
-    }
-  } catch (er) {
-    await rsv.refund()
-  }
-} else {
-  // not entitled to feature
-  showMessage('acme', 'You have no foos remaining, please upgrade')
+  // ok they can start it
+  myAPI.addToMessageBrokerSystem('acme', 'foo')
+}
+
+// elsewhere in my application somewhere, maybe another
+// machine, some time later, who knows
+
+const handleFinalStep = async org => {
+  // ok it worked!
+  // do something
+  await tier.record(`org:${org}`, 'feature:foo')
 }
 ```
 
-#### `tier.reserve(org, feature, count = 1, now = new Date())`
+Note that this highlights a race condition! If the user can
+initiate many such processes, they may go over their limit.
+(Maybe that's what you want.)
 
-Reserve `count` units of feature usage for the specified org, and
-return the resulting used/limit amounts after making the
-reservation. No guards against overages or limits.
+#### Out of Band Checking/Recording, Up-front and Rollback
 
-If the user does not have the feature in their plan, returns
-`{"used":-1,"limit":-2}`
+In this example, the feature is again a chain of messages being
+passed between systems, but since it can take a while to
+complete, we don't want to let the user go over their limit. We
+_also_ don't want to charge them if the process fails!
 
-#### `tier.currentUsage(org, feature, now = new Date())`
+```js
+if (await tier.can('org:acme', 'feature:foo')) {
+  myAPI.addToMessageBrokerSystem('acme', 'foo')
+  // record the usage right away
+  await tier.record('org:acme', 'feature:foo')
+}
 
-Performs a reservation of count `0`, to return a `Reservation`
-object reflecting the current usage state.
+const handleError = async org => {
+  // oh no, it failed!
+  // just record negative usage to "refund" the usage
+  await tier.record(`org:${org}`, 'feature:foo', -1)
+}
 
-No side effects, does not increment usage.
+const handleFinalStep = async org => {
+  // don't have to tell tier about it, because we already did.
+}
+```
+
+#### `tier.record(org, feature, count = 1, now = new Date()): Promise<void>`
+
+Records `count` units of feature usage for the specified org.
+
+Promise resolves when data has been accepted by Tier, rejects if
+there is an error recording.
 
 #### `tier.can(org, feature, count = 1, now = new Date())`
 

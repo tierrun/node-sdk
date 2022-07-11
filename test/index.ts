@@ -1,5 +1,5 @@
-import { TierClient, TierError, isTierError } from '../lib/index.js'
 import t from 'tap'
+import { isTierError, TierClient, TierError } from '../lib/index.js'
 
 process.env.TIER_API_URL = 'http://127.0.0.1:8888'
 process.env.TIER_WEB_URL = 'http://localhost:3000'
@@ -97,13 +97,37 @@ t.test('empty model returns null', async t => {
   tier.getOK = async () => ({ plans: {} })
   t.equal(await tier.pullModel(), null)
   //@ts-expect-error
-  tier.getOK = async () => ({ plans: {'plan:p@0':{}} })
-  t.strictSame(await tier.pullModel(), { plans: {'plan:p@0':{}} })
+  tier.getOK = async () => ({ plans: { 'plan:p@0': {} } })
+  t.strictSame(await tier.pullModel(), { plans: { 'plan:p@0': {} } })
 })
 
 t.test('invalid options that blow up', async t => {
   t.throws(() => new TierClient({ apiUrl: 'hello', webUrl: 'world' }))
   t.throws(() => new TierClient({ authType: 'nope a dopey rope' }))
+})
+
+t.test('tier.record() is void-returning alias for tier.reserve()', async t => {
+  const tc = TierClient.fromEnv()
+  const reserved: [string, string, number, string | number | Date][] = []
+  const rsv = { ok: true }
+  const NOW = Date.now()
+  // @ts-ignore
+  tc.reserve = async (org, feature, count = 1, now = NOW) => {
+    reserved.push([org, feature, count, now])
+    return rsv
+  }
+  const expectVoids: void[] = []
+  expectVoids.push(await tc.record('org:o', 'feature:f', 99, 123456))
+  expectVoids.push(
+    await tc.record('org:x', 'feature:x', -1, new Date('1979-07-01'))
+  )
+  expectVoids.push(await tc.record('org:m', 'feature:b'))
+  t.strictSame(expectVoids, new Array(expectVoids.length))
+  t.match(reserved, [
+    ['org:o', 'feature:f', 99, 123456],
+    ['org:x', 'feature:x', -1, new Date('1979-07-01')],
+    ['org:m', 'feature:b', 1, Date],
+  ])
 })
 
 t.test('need tier_key env or login', async t => {
@@ -122,8 +146,8 @@ t.test('isTierError', async t => {
     headers: { foo: 'bar' },
   }
   t.equal(isTierError({ message: 'hello', request }), false)
-  const eWithReq:Error & { request: {[k:string]:any}} = Object.assign(e, {
-    request
+  const eWithReq: Error & { request: { [k: string]: any } } = Object.assign(e, {
+    request,
   })
   t.equal(isTierError(eWithReq), false)
 

@@ -433,7 +433,10 @@ t.test('pushModel, pullModel', async t => {
 
   t.equal(await TierClient.fromEnv().pushModel(model), null)
   t.equal(await TierClient.fromEnv().pushModel(JSON.stringify(model)), null)
-  t.equal(await TierClient.fromEnv().pushModel(Buffer.from(JSON.stringify(model))), null)
+  t.equal(
+    await TierClient.fromEnv().pushModel(Buffer.from(JSON.stringify(model))),
+    null
+  )
 
   t.strictSame(await TierClient.fromEnv().pullModel(), model)
 })
