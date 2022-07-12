@@ -106,7 +106,7 @@ t.test('invalid options that blow up', async t => {
   t.throws(() => new TierClient({ authType: 'nope a dopey rope' }))
 })
 
-t.test('tier.record() is void-returning alias for tier.reserve()', async t => {
+t.test('tier.report() is void-returning alias for tier.reserve()', async t => {
   const tc = TierClient.fromEnv()
   const reserved: [string, string, number, string | number | Date][] = []
   const rsv = { ok: true }
@@ -117,11 +117,11 @@ t.test('tier.record() is void-returning alias for tier.reserve()', async t => {
     return rsv
   }
   const expectVoids: void[] = []
-  expectVoids.push(await tc.record('org:o', 'feature:f', 99, 123456))
+  expectVoids.push(await tc.report('org:o', 'feature:f', 99, 123456))
   expectVoids.push(
-    await tc.record('org:x', 'feature:x', -1, new Date('1979-07-01'))
+    await tc.report('org:x', 'feature:x', -1, new Date('1979-07-01'))
   )
-  expectVoids.push(await tc.record('org:m', 'feature:b'))
+  expectVoids.push(await tc.report('org:m', 'feature:b'))
   t.strictSame(expectVoids, new Array(expectVoids.length))
   t.match(reserved, [
     ['org:o', 'feature:f', 99, 123456],

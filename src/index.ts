@@ -789,9 +789,9 @@ export class TierClient {
   /* c8 ignore stop */
 
   /**
-   * Record `count` units of usage for the given org and feature.
+   * Report `count` units of usage for the given org and feature.
    */
-  async record(
+  async report(
     org: OrgName,
     feature: FeatureName,
     count: number = 1,

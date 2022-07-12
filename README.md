@@ -171,28 +171,28 @@ the `effective` date is the current time.
 
 Posts to `/api/v1/append`
 
-### Recording and Checking Usage
+### Reporting and Checking Usage
 
 Usage and limit amounts are based on best available data at the
-moment recorded. Amounts reported by the Tier API are eventually
+moment reported. Amounts reported by the Tier API are eventually
 consistent, usually within a few ms. <!-- TKTK: figure out what
 actual SLA/reliability guarantee we can make here -->
 
 Check that a user has access to a feature (ie, it's included in
 their plan, and they are not over their limit) using
 `tier.can()`. When a feature is successfully consumed, call
-`tier.record()` to tell Tier about it.
+`tier.report()` to tell Tier about it.
 
 #### Simple Example
 
 Our customer is attempting to consume 1 of the `foo` feature. We
-should allow if they're not over their limit, and record it once
+should allow if they're not over their limit, and report it once
 the feature is delivered.
 
 ```js
 if (await tier.can('org:acme', 'feature:foo')) {
   consumeOneFoo('acme')
-  await tier.record('org:acme', 'feature:foo')
+  await tier.report('org:acme', 'feature:foo')
 } else {
   // suggest they buy a bigger plan, maybe?
   showUpgradePlanUX('acme')
@@ -207,13 +207,13 @@ their plan, but not enough to do what we're trying.
 ```js
 if (await tier.can('org:acme', 'feature:foo', 10)) {
   consumeTenFoos('acme')
-  await tier.record('org:acme', 'feature:foo', 10)
+  await tier.report('org:acme', 'feature:foo', 10)
 } else {
   showSorryYouNeedToUpgradeMessage('acme')
 }
 ```
 
-#### Out of Band Checking/Recording, On Completion
+#### Out of Band Checking/Reporting, On Completion
 
 Sometimes a "feature" is not a single function call. We might
 kick off a series of events or chain of messages, and only
@@ -231,7 +231,7 @@ if (await tier.can('org:acme', 'feature:foo')) {
 const handleFinalStep = async org => {
   // ok it worked!
   // do something
-  await tier.record(`org:${org}`, 'feature:foo')
+  await tier.report(`org:${org}`, 'feature:foo')
 }
 ```
 
@@ -239,7 +239,7 @@ Note that this highlights a race condition! If the user can
 initiate many such processes, they may go over their limit.
 (Maybe that's what you want.)
 
-#### Out of Band Checking/Recording, Up-front and Rollback
+#### Out of Band Checking/Reporting, Up-front and Rollback
 
 In this example, the feature is again a chain of messages being
 passed between systems, but since it can take a while to
@@ -249,14 +249,14 @@ _also_ don't want to charge them if the process fails!
 ```js
 if (await tier.can('org:acme', 'feature:foo')) {
   myAPI.addToMessageBrokerSystem('acme', 'foo')
-  // record the usage right away
-  await tier.record('org:acme', 'feature:foo')
+  // report the usage right away
+  await tier.report('org:acme', 'feature:foo')
 }
 
 const handleError = async org => {
   // oh no, it failed!
-  // just record negative usage to "refund" the usage
-  await tier.record(`org:${org}`, 'feature:foo', -1)
+  // just report negative usage to "refund" the usage
+  await tier.report(`org:${org}`, 'feature:foo', -1)
 }
 
 const handleFinalStep = async org => {
@@ -264,12 +264,12 @@ const handleFinalStep = async org => {
 }
 ```
 
-#### `tier.record(org, feature, count = 1, now = new Date()): Promise<void>`
+#### `tier.report(org, feature, count = 1, now = new Date()): Promise<void>`
 
-Records `count` units of feature usage for the specified org.
+Reports `count` units of feature usage for the specified org.
 
 Promise resolves when data has been accepted by Tier, rejects if
-there is an error recording.
+there is an error report.
 
 #### `tier.can(org, feature, count = 1, now = new Date())`
 
