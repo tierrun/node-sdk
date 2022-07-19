@@ -76,7 +76,7 @@ export enum Mode {
 export interface Feature {
   type?: Mode
   reset?: string
-  aggregate?: string
+  title?: string
   tiers?: Array<Tier>
 }
 
