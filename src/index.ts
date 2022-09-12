@@ -772,7 +772,7 @@ export class TierClient {
 
   async lookupCurrentPlan(org: OrgName): Promise<PlanName> {
     const schedule = await this.lookupSchedule(org)
-    return schedule.phases[schedule.current].plan
+    return schedule.phases[schedule.current || 0].plan
   }
 
   async pullPricingPage(name: string = ''): Promise<PricingPage> {
