@@ -18,6 +18,9 @@ may be found at <https://www.tier.run/docs/>.
 
 ## API
 
+To operate on live Stripe data, set `TIER_LIVE=1` in the
+environment prior to using the SDK.
+
 ### `subscribe(org, plan, [effective])`
 
 Subscribe the named org to the specified plan. If no effective

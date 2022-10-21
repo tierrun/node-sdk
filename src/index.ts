@@ -5,7 +5,7 @@
 // TODO: handle tier errors in a nice consistent way
 
 // set to a specific tier binary, otherwise just resolve from PATH
-const { TIER = 'tier' } = process.env
+const { TIER = 'tier', TIER_LIVE = '0' } = process.env
 
 import { spawn } from 'child_process'
 import fetch from 'node-fetch'
@@ -22,7 +22,8 @@ export const init = async () => {
   }
   initting = new Promise((res, rej) => {
     initting = undefined
-    const proc = spawn(TIER, ['serve'], {
+    const args = TIER_LIVE === '1' ? ['--live', 'serve'] : ['serve']
+    const proc = spawn(TIER, args, {
       stdio: ['ignore', 'pipe', 'inherit'],
     })
     proc.on('error', rej)
