@@ -4,6 +4,9 @@
 // TODO: more type checking on inputs and return values
 // TODO: handle tier errors in a nice consistent way
 
+// set to a specific tier binary, otherwise just resolve from PATH
+const { TIER = 'tier' } = process.env
+
 import { spawn } from 'child_process'
 import fetch from 'node-fetch'
 
@@ -19,7 +22,7 @@ export const init = async () => {
   }
   initting = new Promise((res, rej) => {
     initting = undefined
-    const proc = spawn('tier', ['serve'], {
+    const proc = spawn(TIER, ['serve'], {
       stdio: ['ignore', 'pipe', 'inherit'],
     })
     proc.on('error', rej)
@@ -65,11 +68,31 @@ export interface Limits {
 // XXX too clever for older ts versions?
 export type PlanName = `plan:${string}@${string}`
 export type VersionedFeatureName = `${FeatureName}@${PlanName}`
+export type Features = PlanName | VersionedFeatureName
+
+export const isPlanName = (p: any): p is PlanName =>
+  typeof p === 'string' && /^plan:[^@]+@[^@]+$/.test(p)
+
+export const isVersionedFeatureName = (f: any): f is VersionedFeatureName =>
+  typeof f === 'string' && /^feature:[^@]+@plan:[^@]+@[^@]+$/.test(f)
+
+export const isFeatures = (f: any): f is Features =>
+  isPlanName(f) || isVersionedFeatureName(f)
 
 export interface Phase {
-  effective: Date
-	features: (PlanName | VersionedFeatureName)[]
+  effective?: Date
+  features: Features[]
 }
+
+const isDate = (d: any): d is Date =>
+  d && typeof d === 'object' && d instanceof Date
+
+export const isPhase = (p: any): p is Phase =>
+  p &&
+  typeof p === 'object' &&
+  (p.effective === undefined || isDate(p.effective)) &&
+  Array.isArray(p.features) &&
+  !p.features.some((f: any) => !isFeatures(f))
 
 export interface SubscribeRequest {
   org: OrgName
@@ -94,10 +117,10 @@ export interface WhoIsResponse {
   stripe_id: string
 }
 
-const apiGet = async<T> (
+const apiGet = async <T>(
   path: string,
   query?: { [k: string]: string | string[] }
-):Promise<T> => {
+): Promise<T> => {
   await init()
   const u = new URL(path, 'http://localhost:8080')
   if (query) {
@@ -112,13 +135,10 @@ const apiGet = async<T> (
     }
   }
   const res = await fetch(u.toString())
-  return await res.json() as T
+  return (await res.json()) as T
 }
 
-const apiPost = async<TReq, TRes> (
-  path: string,
-  body: TReq
-):Promise<TRes>  => {
+const apiPost = async <TReq, TRes>(path: string, body: TReq): Promise<TRes> => {
   await init()
   const u = new URL(path, 'http://localhost:8080')
   const res = await fetch(u.toString(), {
@@ -128,25 +148,63 @@ const apiPost = async<TReq, TRes> (
     },
     body: JSON.stringify(body),
   })
-  return await res.json() as TRes
+  return (await res.json()) as TRes
 }
 
 // actual API methods
-export const limits = async (org: OrgName): Promise<Limits> => {
+export async function limits(org: OrgName): Promise<Limits> {
   return await apiGet<Limits>('/v1/limits', { org })
 }
 
-export const report = async (req: ReportRequest): Promise<void> => {
-  if (req.n === undefined) {
-    req.n = 1
+export async function report(
+  org: OrgName,
+  feature: FeatureName,
+  n: number = 1,
+  at?: Date,
+  clobber?: boolean
+): Promise<void> {
+  const req: ReportRequest = {
+    org,
+    feature,
+    n,
   }
+  if (at) {
+    req.at = at
+  }
+  req.clobber = !!clobber
+
   return await apiPost<ReportRequest, void>('/v1/report', req)
 }
 
-export const subscribe = async (req: SubscribeRequest): Promise<void> => {
-  return await apiPost<SubscribeRequest, void>('/v1/subscribe', req)
+export async function subscribe(org: OrgName, phases: Phase[]): Promise<void>
+export async function subscribe(
+  org: OrgName,
+  features: Features | Features[],
+  effective: Date
+): Promise<void>
+export async function subscribe(
+  org: OrgName,
+  featuresOrPhases: Features | Features[] | Phase[],
+  effective?: Date
+): Promise<void> {
+  const phasesArg =
+    Array.isArray(featuresOrPhases) && !featuresOrPhases.some(p => !isPhase(p))
+  if (phasesArg && effective) {
+    throw new TypeError('effective date should be set in phase objects')
+  }
+  const phases: Phase[] = phasesArg
+    ? (featuresOrPhases as Phase[])
+    : !Array.isArray(featuresOrPhases)
+    ? [{ features: [featuresOrPhases], effective }]
+    : featuresOrPhases.map(f => ({
+        features: f as unknown as Features[],
+        effective,
+      }))
+
+  const sr: SubscribeRequest = { org, phases }
+  return await apiPost<SubscribeRequest, void>('/v1/subscribe', sr)
 }
 
-export const whois = async (org: OrgName): Promise<WhoIsResponse> => {
+export async function whois(org: OrgName): Promise<WhoIsResponse> {
   return await apiGet<WhoIsResponse>('/v1/whois', { org })
 }
