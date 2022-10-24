@@ -37,8 +37,8 @@ const Tier = require('@tier.run/sdk').default
 
 ### `subscribe(org, plan, [effective])`
 
-Subscribe the named org to the specified plan. If no effective
-date is provided, then the plan is effective immediately.
+Subscribe an org to the specified plan. If no effective date is
+provided, then the plan is effective immediately.
 
 Plan may be either a versioned plan name, or an array of
 versioned plan names.
@@ -48,8 +48,8 @@ immediately.
 
 ### `subscribe(org, phases)`
 
-Subscribe the named org to each of the sets of plans specified in
-the `phases` array.
+Subscribe an org to each of the sets of plans specified in the
+`phases` array.
 
 Each item in `phases` must be an object containing:
 
@@ -61,11 +61,29 @@ immediately.
 
 ### `limits(org)`
 
-Retrieve the usage data and limits for the named org.
+Retrieve the usage data and limits for an org.
+
+```json
+{
+  "org": "org:user",
+  "usage": [
+    {
+      "feature": "feature:storage",
+      "used": 341,
+      "limit": 10000
+    },
+    {
+      "feature": "feature:transfer",
+      "used": 234213,
+      "limit": 10000
+    }
+  ]
+}
+```
 
 ### `report(org, feature, [n = 1], [at = new Date()], [clobber = false])`
 
-Report usage of the feature by the org.
+Report usage of a feature by an org.
 
 The optional `n` parameter indicates the number of units of the
 feature that were consumed.
@@ -79,4 +97,11 @@ current subscription phase.
 
 ### `whois(org)`
 
-Retrieve the Stripe Customer ID for the org.
+Retrieve the Stripe Customer ID for an org.
+
+```json
+{
+  "org": "org:user",
+  "stripe_id": "cus_v49o7xMpZaMbzg"
+}
+```
