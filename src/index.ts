@@ -4,16 +4,13 @@
 // TODO: more type checking on inputs and return values
 // TODO: handle tier errors in a nice consistent way
 
-// set to a specific tier binary, otherwise just resolve from PATH
-const { TIER = 'tier', TIER_LIVE = '0' } = process.env
-
 import { ChildProcess, spawn } from 'child_process'
 import fetch from 'node-fetch'
 
 let sidecarPID: number | undefined
 let initting: undefined | Promise<void>
 
-export const init = async () => {
+const init = async () => {
   if (sidecarPID) {
     return
   }
@@ -24,42 +21,52 @@ export const init = async () => {
     return await initting
   }
   initting = new Promise<ChildProcess>((res, rej) => {
-    initting = undefined
-    const args = TIER_LIVE === '1' ? ['--live', 'serve'] : ['serve']
-    const proc = spawn(TIER, args, {
+    const args = process.env.TIER_LIVE === '1' ? ['--live', 'serve'] : ['serve']
+    let proc = spawn('tier', args, {
       stdio: ['ignore', 'pipe', 'inherit'],
     })
     proc.on('error', rej)
+    /* c8 ignore start */
     if (!proc || !proc.stdout) {
       return rej(new Error('failed to start tier sidecar'))
     }
+    /* c8 ignore stop */
     proc.stdout.on('data', () => res(proc))
-    proc.on('close', () => {
-      sidecarPID = undefined
-      delete process.env.TIER_SIDECAR_RUNNING
-    })
-    proc.unref()
-  }).then((proc) => {
-    process.env.TIER_SIDECAR_RUNNING = '1'
-    sidecarPID = proc.pid
   })
+    .then(proc => {
+      proc.on('close', () => {
+        sidecarPID = undefined
+        delete process.env.TIER_SIDECAR_RUNNING
+        process.removeListener('exit', Tier.exitHandler)
+      })
+      process.on('exit', Tier.exitHandler)
+      proc.unref()
+      process.env.TIER_SIDECAR_RUNNING = '1'
+      sidecarPID = proc.pid
+      initting = undefined
+    })
+    .catch(er => {
+      initting = undefined
+      sidecarPID = undefined
+      throw er
+    })
   return initting
 }
 
-export const exitHandler = (_: number, signal: string | null) => {
+/* c8 ignore start */
+const exitHandler = (_: number, signal: string | null) => {
   if (sidecarPID) {
     process.kill(sidecarPID, signal || 'SIGTERM')
   }
 }
-
-process.on('exit', exitHandler)
+/* c8 ignore stop */
 
 export type OrgName = `org:${string}`
-export const isOrgName = (o: any): o is OrgName =>
+const isOrgName = (o: any): o is OrgName =>
   typeof o === 'string' && o.startsWith('org:')
 
 export type FeatureName = `feature:${string}`
-export const isFeatureName = (f: any): f is FeatureName =>
+const isFeatureName = (f: any): f is FeatureName =>
   typeof f === 'string' && f.startsWith('feature:')
 
 export interface Usage {
@@ -79,13 +86,13 @@ export type PlanName = `plan:${string}@${string}`
 export type VersionedFeatureName = `${FeatureName}@${PlanName}`
 export type Features = PlanName | VersionedFeatureName
 
-export const isPlanName = (p: any): p is PlanName =>
+const isPlanName = (p: any): p is PlanName =>
   typeof p === 'string' && /^plan:[^@]+@[^@]+$/.test(p)
 
-export const isVersionedFeatureName = (f: any): f is VersionedFeatureName =>
+const isVersionedFeatureName = (f: any): f is VersionedFeatureName =>
   typeof f === 'string' && /^feature:[^@]+@plan:[^@]+@[^@]+$/.test(f)
 
-export const isFeatures = (f: any): f is Features =>
+const isFeatures = (f: any): f is Features =>
   isPlanName(f) || isVersionedFeatureName(f)
 
 export interface Phase {
@@ -96,7 +103,7 @@ export interface Phase {
 const isDate = (d: any): d is Date =>
   d && typeof d === 'object' && d instanceof Date
 
-export const isPhase = (p: any): p is Phase =>
+const isPhase = (p: any): p is Phase =>
   p &&
   typeof p === 'object' &&
   (p.effective === undefined || isDate(p.effective)) &&
@@ -130,14 +137,16 @@ const apiGet = async <T>(
   path: string,
   query?: { [k: string]: string | string[] }
 ): Promise<T> => {
-  await init()
+  await Tier.init()
   const u = new URL(path, 'http://localhost:8080')
   if (query) {
     for (const [k, v] of Object.entries(query)) {
+      /* c8 ignore start */
       if (Array.isArray(v)) {
         for (const value of v) {
           u.searchParams.append(k, value)
         }
+        /* c8 ignore stop */
       } else {
         u.searchParams.set(k, v)
       }
@@ -148,7 +157,7 @@ const apiGet = async <T>(
 }
 
 const apiPost = async <TReq, TRes>(path: string, body: TReq): Promise<TRes> => {
-  await init()
+  await Tier.init()
   const u = new URL(path, 'http://localhost:8080')
   const res = await fetch(u.toString(), {
     method: 'POST',
@@ -161,11 +170,11 @@ const apiPost = async <TReq, TRes>(path: string, body: TReq): Promise<TRes> => {
 }
 
 // actual API methods
-export async function limits(org: OrgName): Promise<Limits> {
+async function limits(org: OrgName): Promise<Limits> {
   return await apiGet<Limits>('/v1/limits', { org })
 }
 
-export async function report(
+async function report(
   org: OrgName,
   feature: FeatureName,
   n: number = 1,
@@ -185,13 +194,13 @@ export async function report(
   return await apiPost<ReportRequest, void>('/v1/report', req)
 }
 
-export async function subscribe(org: OrgName, phases: Phase[]): Promise<void>
-export async function subscribe(
+async function subscribe(org: OrgName, phases: Phase[]): Promise<void>
+async function subscribe(
   org: OrgName,
   features: Features | Features[],
-  effective: Date
+  effective?: Date
 ): Promise<void>
-export async function subscribe(
+async function subscribe(
   org: OrgName,
   featuresOrPhases: Features | Features[] | Phase[],
   effective?: Date
@@ -205,15 +214,29 @@ export async function subscribe(
     ? (featuresOrPhases as Phase[])
     : !Array.isArray(featuresOrPhases)
     ? [{ features: [featuresOrPhases], effective }]
-    : featuresOrPhases.map(f => ({
-        features: f as unknown as Features[],
-        effective,
-      }))
+    : [{ features: featuresOrPhases as unknown as Features[], effective }]
 
   const sr: SubscribeRequest = { org, phases }
   return await apiPost<SubscribeRequest, void>('/v1/subscribe', sr)
 }
 
-export async function whois(org: OrgName): Promise<WhoIsResponse> {
+async function whois(org: OrgName): Promise<WhoIsResponse> {
   return await apiGet<WhoIsResponse>('/v1/whois', { org })
 }
+
+const Tier = {
+  init,
+  exitHandler,
+  isOrgName,
+  isFeatureName,
+  isPlanName,
+  isVersionedFeatureName,
+  isFeatures,
+  isPhase,
+  limits,
+  report,
+  subscribe,
+  whois,
+}
+
+export default Tier

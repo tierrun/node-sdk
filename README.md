@@ -25,6 +25,16 @@ The Tier sidecar will be started automatically on the first API
 call.  If you start the sidecar in some other way, set
 `TIER_SIDECAR_RUNNING=1` in the environment.
 
+Load the SDK via:
+
+```js
+// typescript or esmodule style
+import Tier from '@tier.run/sdk'
+
+// or, commonjs style
+const Tier = require('@tier.run/sdk').default
+```
+
 ### `subscribe(org, plan, [effective])`
 
 Subscribe the named org to the specified plan. If no effective
