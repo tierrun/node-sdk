@@ -21,6 +21,10 @@ may be found at <https://www.tier.run/docs/>.
 To operate on live Stripe data, set `TIER_LIVE=1` in the
 environment prior to using the SDK.
 
+The Tier sidecar will be started automatically on the first API
+call.  If you start the sidecar in some other way, set
+`TIER_SIDECAR_RUNNING=1` in the environment.
+
 ### `subscribe(org, plan, [effective])`
 
 Subscribe the named org to the specified plan. If no effective

@@ -7,20 +7,23 @@
 // set to a specific tier binary, otherwise just resolve from PATH
 const { TIER = 'tier', TIER_LIVE = '0' } = process.env
 
-import { spawn } from 'child_process'
+import { ChildProcess, spawn } from 'child_process'
 import fetch from 'node-fetch'
 
 let sidecarPID: number | undefined
-let initting: undefined | Promise<string>
+let initting: undefined | Promise<void>
 
 export const init = async () => {
   if (sidecarPID) {
     return
   }
+  if (process.env.TIER_SIDECAR_RUNNING === '1') {
+    return
+  }
   if (initting) {
     return await initting
   }
-  initting = new Promise((res, rej) => {
+  initting = new Promise<ChildProcess>((res, rej) => {
     initting = undefined
     const args = TIER_LIVE === '1' ? ['--live', 'serve'] : ['serve']
     const proc = spawn(TIER, args, {
@@ -30,10 +33,15 @@ export const init = async () => {
     if (!proc || !proc.stdout) {
       return rej(new Error('failed to start tier sidecar'))
     }
-    proc.stdout.on('data', c => res(c.toString()))
-    proc.on('close', () => (sidecarPID = undefined))
-    sidecarPID = proc.pid
+    proc.stdout.on('data', () => res(proc))
+    proc.on('close', () => {
+      sidecarPID = undefined
+      delete process.env.TIER_SIDECAR_RUNNING
+    })
     proc.unref()
+  }).then((proc) => {
+    process.env.TIER_SIDECAR_RUNNING = '1'
+    sidecarPID = proc.pid
   })
   return initting
 }
