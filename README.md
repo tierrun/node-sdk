@@ -22,8 +22,17 @@ To operate on live Stripe data, set `TIER_LIVE=1` in the
 environment prior to using the SDK.
 
 The Tier sidecar will be started automatically on the first API
-call.  If you start the sidecar in some other way, set
-`TIER_SIDECAR_RUNNING=1` in the environment.
+call, responding only to requests from `localhost`, on a port
+derived from the process id.
+
+If you start the sidecar in some other way, set
+`TIER_SIDECAR=<url>` in the environment, with the full `url` to
+the running sidecar.  For example:
+
+```
+$ export TIER_SIDECAR=https://tier-sidecar.acme.com:4321
+$ npm start
+```
 
 Load the SDK via:
 
@@ -103,5 +112,25 @@ Retrieve the Stripe Customer ID for an org.
 {
   "org": "org:user",
   "stripe_id": "cus_v49o7xMpZaMbzg"
+}
+```
+
+### `phase(org)`
+
+Retrieve the current schedule phase for the org.  This provides a
+list of the features and plans that the org is currently
+subscribed to, which can be useful information when creating a
+user interface for upgrading/downgrading pricing plans.
+
+```json
+{
+  "effective": "2022-10-13T16:52:11-07:00",
+  "features": [
+    "feature:storage@plan:free@1",
+    "feature:transfer@plan:free@1"
+  ],
+  "plans": [
+    "plan:free@1"
+  ]
 }
 ```

@@ -9,20 +9,30 @@ import fetch from 'node-fetch'
 
 let sidecarPID: number | undefined
 let initting: undefined | Promise<void>
+const port = 10000 + (process.pid % 10000)
+const debug =
+  process.env.TIER_DEBUG === '1' ||
+  /\btier\b/i.test(process.env.NODE_DEBUG || '')
+const debugLog = debug ? console.error : () => {}
 
 const init = async () => {
-  if (sidecarPID) {
-    return
-  }
-  if (process.env.TIER_SIDECAR_RUNNING === '1') {
+  if (sidecarPID || process.env.TIER_SIDECAR) {
     return
   }
   if (initting) {
     return await initting
   }
   initting = new Promise<ChildProcess>((res, rej) => {
-    const args = process.env.TIER_LIVE === '1' ? ['--live', 'serve'] : ['serve']
+    const args = process.env.TIER_LIVE === '1' ? ['--live'] : []
+    const env = Object.fromEntries(Object.entries(process.env))
+    if (debug) {
+      args.push('-v')
+      env.STRIPE_DEBUG = '1'
+    }
+    args.push('serve', '--addr', `127.0.0.1:${port}`)
+    debugLog('tier:', args)
     let proc = spawn('tier', args, {
+      env,
       stdio: ['ignore', 'pipe', 'inherit'],
     })
     proc.on('error', rej)
@@ -36,12 +46,12 @@ const init = async () => {
     .then(proc => {
       proc.on('close', () => {
         sidecarPID = undefined
-        delete process.env.TIER_SIDECAR_RUNNING
+        delete process.env.TIER_SIDECAR
         process.removeListener('exit', Tier.exitHandler)
       })
       process.on('exit', Tier.exitHandler)
       proc.unref()
-      process.env.TIER_SIDECAR_RUNNING = '1'
+      process.env.TIER_SIDECAR = `http://127.0.0.1:${port}`
       sidecarPID = proc.pid
       initting = undefined
     })
@@ -95,6 +105,17 @@ const isVersionedFeatureName = (f: any): f is VersionedFeatureName =>
 const isFeatures = (f: any): f is Features =>
   isPlanName(f) || isVersionedFeatureName(f)
 
+export interface CurrentPhase {
+  effective: Date
+  features: VersionedFeatureName[]
+  plans: PlanName[]
+}
+interface CurrentPhaseResponse {
+  effective: string
+  features: VersionedFeatureName[]
+  plans: PlanName[]
+}
+
 export interface Phase {
   effective?: Date
   features: Features[]
@@ -138,7 +159,8 @@ const apiGet = async <T>(
   query?: { [k: string]: string | string[] }
 ): Promise<T> => {
   await Tier.init()
-  const u = new URL(path, 'http://localhost:8080')
+  const base = process.env.TIER_SIDECAR || `http://127.0.0.1:${port}`
+  const u = new URL(path, base)
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       /* c8 ignore start */
@@ -152,13 +174,15 @@ const apiGet = async <T>(
       }
     }
   }
+  debugLog('tier: GET', u.pathname)
   const res = await fetch(u.toString())
   return (await res.json()) as T
 }
 
 const apiPost = async <TReq, TRes>(path: string, body: TReq): Promise<TRes> => {
   await Tier.init()
-  const u = new URL(path, 'http://localhost:8080')
+  const base = process.env.TIER_SIDECAR || `http://127.0.0.1:${port}`
+  const u = new URL(path, base)
   const res = await fetch(u.toString(), {
     method: 'POST',
     headers: {
@@ -166,6 +190,7 @@ const apiPost = async <TReq, TRes>(path: string, body: TReq): Promise<TRes> => {
     },
     body: JSON.stringify(body),
   })
+  debugLog('tier: POST', u.pathname)
   return (await res.json()) as TRes
 }
 
@@ -224,6 +249,14 @@ async function whois(org: OrgName): Promise<WhoIsResponse> {
   return await apiGet<WhoIsResponse>('/v1/whois', { org })
 }
 
+async function phase(org: OrgName): Promise<CurrentPhase> {
+  const resp = await apiGet<CurrentPhaseResponse>('/v1/phase', { org })
+  return {
+    ...resp,
+    effective: new Date(resp.effective),
+  }
+}
+
 const Tier = {
   init,
   exitHandler,
@@ -237,6 +270,7 @@ const Tier = {
   report,
   subscribe,
   whois,
+  phase,
 }
 
 export default Tier

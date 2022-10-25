@@ -1,6 +1,7 @@
 import { createServer } from 'http'
 import t from 'tap'
 import Tier from '../'
+const port = 10000 + (process.pid % 10000)
 
 t.match(Tier, {
   init: Function,
@@ -15,6 +16,7 @@ t.match(Tier, {
   report: Function,
   subscribe: Function,
   whois: Function,
+  phase: Function,
 })
 
 // fake the init for these tests
@@ -72,8 +74,35 @@ t.test('limits', t => {
     t.equal(req.url, '/v1/limits?org=org%3Ao')
     res.end(JSON.stringify({ ok: true }))
   })
-  server.listen(8080, async () => {
+  server.listen(port, async () => {
     t.same(await Tier.limits('org:o'), { ok: true })
+    t.end()
+  })
+})
+
+t.test('phase', t => {
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/phase?org=org%3Ao')
+    res.end(
+      JSON.stringify({
+        effective: '2022-10-13T16:52:11-07:00',
+        features: [
+          'feature:storage@plan:free@1',
+          'feature:transfer@plan:free@1',
+        ],
+        plans: ['plan:free@1'],
+      })
+    )
+  })
+  server.listen(port, async () => {
+    t.same(await Tier.phase('org:o'), {
+      effective: new Date('2022-10-13T16:52:11-07:00'),
+      features: ['feature:storage@plan:free@1', 'feature:transfer@plan:free@1'],
+      plans: ['plan:free@1'],
+    })
     t.end()
   })
 })
@@ -86,7 +115,7 @@ t.test('whois', t => {
     t.equal(req.url, '/v1/whois?org=org%3Ao')
     res.end(JSON.stringify({ ok: true }))
   })
-  server.listen(8080, async () => {
+  server.listen(port, async () => {
     t.same(await Tier.whois('org:o'), { ok: true })
     t.end()
   })
@@ -124,7 +153,7 @@ t.test('report', t => {
     })
   })
 
-  server.listen(8080, async () => {
+  server.listen(port, async () => {
     t.same(await Tier.report('org:o', 'feature:f'), { ok: true })
     t.same(
       await Tier.report(
@@ -167,7 +196,10 @@ t.test('subscribe', t => {
     {
       org: 'org:o',
       phases: [
-        { effective: '2022-10-24T21:26:24.438Z', features: ['plan:basic@0', 'feature:f@plan:p@0'] },
+        {
+          effective: '2022-10-24T21:26:24.438Z',
+          features: ['plan:basic@0', 'feature:f@plan:p@0'],
+        },
       ],
     },
   ]
@@ -187,7 +219,7 @@ t.test('subscribe', t => {
     })
   })
 
-  server.listen(8080, async () => {
+  server.listen(port, async () => {
     t.same(
       await Tier.subscribe('org:o', [
         {
@@ -222,12 +254,15 @@ t.test('subscribe', t => {
       { ok: true }
     )
 
-    t.rejects(Tier.subscribe(
+    t.rejects(
+      Tier.subscribe(
         'org:o',
-        // @ts-ignore
-        [{
-          features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
-        }],
+        [
+          // @ts-ignore
+          {
+            features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
+          },
+        ],
         new Date('2022-10-24T21:26:24.438Z')
       )
     )
