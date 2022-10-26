@@ -6,6 +6,9 @@ SDK for using https://tier.run in Node.js applications
 
 First, install [the Tier binary](https://github.com/tierrun/tier).
 
+Run `tier connect` to authorize Tier to your Stripe account, or
+provide a `STRIPE_API_KEY` environment variable.
+
 ```bash
 npm install @tier.run/sdk
 ```
