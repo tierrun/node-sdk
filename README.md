@@ -1,6 +1,6 @@
 # tier-sdk
 
-SDK for using https://app.tier.run in Node.js applications
+SDK for using https://tier.run in Node.js applications
 
 ## INSTALLING
 
