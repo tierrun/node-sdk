@@ -4,7 +4,7 @@ SDK for using https://tier.run in Node.js applications
 
 ## INSTALLING
 
-First, install [the Tier binary](https://github.com/tierrun/tier).
+First, install [the Tier binary](https://tier.run/docs/install).
 
 Run `tier connect` to authorize Tier to your Stripe account, or
 provide a `STRIPE_API_KEY` environment variable.
@@ -46,6 +46,29 @@ import Tier from '@tier.run/sdk'
 // or, commonjs style
 const Tier = require('@tier.run/sdk').default
 ```
+
+### Environment Variables
+
+#### `STRIPE_API_KEY=<key>`
+
+If set to a stripe secret key, then this will be used instead of
+the key geneated for `tier connect`.
+
+If you do not set `STRIPE_API_KEY` in the environment, then you
+must run [`tier connect`](https://tier.run/docs/cli/connect) to
+authorize the tier client to access your Stripe account.
+
+#### `TIER_DEBUG=1`, `NODE_DEBUG=tier`
+
+Write debugging output to `stderr`.
+
+#### `TIER_SIDECAR=<url>`
+
+Set to the full base URL of the tier sidecar.  Set this if you
+run the sidecar manually using `tier serve`.
+
+If not set, then the Tier SDK will spawn a sidecar on the first
+API call.
 
 ### `subscribe(org, plan, [effective])`
 
