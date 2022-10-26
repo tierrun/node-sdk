@@ -13,14 +13,16 @@ const port = 10000 + (process.pid % 10000)
 const debug =
   process.env.TIER_DEBUG === '1' ||
   /\btier\b/i.test(process.env.NODE_DEBUG || '')
-const debugLog = debug ? console.error : () => {}
+const debugLog = debug
+  ? (...m: any[]) => console.error('tier:', ...m)
+  : () => {}
 
 const init = async () => {
   if (sidecarPID || process.env.TIER_SIDECAR) {
     return
   }
   if (initting) {
-    return await initting
+    return initting
   }
   initting = new Promise<ChildProcess>((res, rej) => {
     const args = process.env.TIER_LIVE === '1' ? ['--live'] : []
@@ -30,7 +32,7 @@ const init = async () => {
       env.STRIPE_DEBUG = '1'
     }
     args.push('serve', '--addr', `127.0.0.1:${port}`)
-    debugLog('tier:', args)
+    debugLog(args)
     let proc = spawn('tier', args, {
       env,
       stdio: ['ignore', 'pipe', 'inherit'],
@@ -44,7 +46,9 @@ const init = async () => {
     proc.stdout.on('data', () => res(proc))
   })
     .then(proc => {
+      debugLog('started sidecar', proc.pid)
       proc.on('close', () => {
+        debugLog('sidecar closed', sidecarPID)
         sidecarPID = undefined
         delete process.env.TIER_SIDECAR
         process.removeListener('exit', Tier.exitHandler)
@@ -56,6 +60,7 @@ const init = async () => {
       initting = undefined
     })
     .catch(er => {
+      debugLog('sidecar error', er)
       initting = undefined
       sidecarPID = undefined
       throw er
@@ -174,7 +179,7 @@ const apiGet = async <T>(
       }
     }
   }
-  debugLog('tier: GET', u.pathname)
+  debugLog('GET', u.pathname)
   const res = await fetch(u.toString())
   return (await res.json()) as T
 }
@@ -190,7 +195,7 @@ const apiPost = async <TReq, TRes>(path: string, body: TReq): Promise<TRes> => {
     },
     body: JSON.stringify(body),
   })
-  debugLog('tier: POST', u.pathname)
+  debugLog('POST', u.pathname)
   return (await res.json()) as TRes
 }
 

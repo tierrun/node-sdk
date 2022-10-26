@@ -33,9 +33,17 @@ t.afterEach(async () => {
   // always just kill the sidecar process between tests
   if (SPAWN_PROC) {
     // @ts-ignore
-    SPAWN_PROC.kill('SIGTERM')
+    let t:Timer|undefined = undefined
+    const p = new Promise<void>(res => {
+      t = setTimeout(() => res(), 200)
+      if (SPAWN_PROC) {
+        SPAWN_PROC.on('close', () => res())
+      }
+    })
     // @ts-ignore
-    await new Promise(res => SPAWN_PROC.on('close', res))
+    SPAWN_PROC.kill('SIGKILL')
+    await p
+    clearTimeout(t)
   }
 })
 
