@@ -1,8 +1,0 @@
-/node_modules
-/.github
-/lib
-.env
-/tap-snapshots
-/cli-packages
-/.nyc_output
-/coverage

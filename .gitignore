@@ -1,7 +1,7 @@
 # ignore most things, include some others
 /*
 /.*
-/lib
+!/lib
 !/.naverc
 !/tsconfig.json
 !/cli-packages

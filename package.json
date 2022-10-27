@@ -1,68 +1,11 @@
 {
   "name": "@tier.run/sdk",
-  "version": "2.2.0",
-  "files": [
-    "lib"
-  ],
+  "version": "2.2.1",
   "main": "lib/index.js",
-  "description": "SDK for using https://tier.run in Node.js applications",
-  "repository": "https://github.com/tierrun/node-sdk",
+  "description": "deprecated: use 'npm install tier' instead",
   "author": "Isaac Z. Schlueter <i@izs.me> (https://izs.me)",
   "license": "ISC",
-  "scripts": {
-    "prepare": "tsc",
-    "format": "prettier --write . --loglevel warn",
-    "test": "c8 tap test/*.ts",
-    "snap": "c8 tap test/*.ts",
-    "pretest": "tsc",
-    "presnap": "tsc",
-    "preversion": "npm test",
-    "postversion": "npm publish",
-    "prepublishOnly": "git push origin --follow-tags",
-    "postpublish": "rm -rf lib"
-  },
-  "prettier": {
-    "semi": false,
-    "printWidth": 80,
-    "tabWidth": 2,
-    "useTabs": false,
-    "singleQuote": true,
-    "jsxSingleQuote": false,
-    "bracketSameLine": true,
-    "arrowParens": "avoid",
-    "endOfLine": "lf"
-  },
-  "eslintIgnore": [
-    "/node_modules",
-    "/build",
-    "/public/build"
-  ],
-  "tap": {
-    "coverage": false,
-    "node-arg": [
-      "--no-warnings",
-      "--loader",
-      "ts-node/esm"
-    ],
-    "ts": false
-  },
-  "devDependencies": {
-    "@types/node": "^18.0.6",
-    "@types/node-fetch": "^2.6.2",
-    "@types/opener": "^1.4.0",
-    "@types/tap": "^15.0.6",
-    "c8": "^7.11.3",
-    "eslint-config-prettier": "^8.5.0",
-    "prettier": "^2.6.2",
-    "tap": "^16.3.0",
-    "ts-node": "^10.9.1",
-    "nock": "13.2",
-    "typescript": "^4.7.4"
-  },
   "dependencies": {
-    "node-fetch": "^2.6.7"
-  },
-  "engines": {
-    "node": ">=12"
+    "tier": ">=2.2.0"
   }
 }
