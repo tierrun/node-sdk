@@ -1,4 +1,4 @@
-# tier-sdk
+# tier Node SDK
 
 SDK for using https://tier.run in Node.js applications
 
@@ -10,7 +10,7 @@ Run `tier connect` to authorize Tier to your Stripe account, or
 provide a `STRIPE_API_KEY` environment variable.
 
 ```bash
-npm install @tier.run/sdk
+npm install tier
 ```
 
 ## Overview
@@ -41,10 +41,10 @@ Load the SDK via:
 
 ```js
 // typescript or esmodule style
-import Tier from '@tier.run/sdk'
+import Tier from 'tier'
 
 // or, commonjs style
-const Tier = require('@tier.run/sdk').default
+const Tier = require('tier').default
 ```
 
 ### Environment Variables
