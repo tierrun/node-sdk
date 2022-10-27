@@ -123,6 +123,48 @@ t.test('limit', t => {
   })
 })
 
+t.test('pull', t => {
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/pull')
+    res.end(JSON.stringify({ plans: {} }))
+  })
+  server.listen(port, async () => {
+    t.same(await Tier.pull(), { plans: {} })
+    t.end()
+  })
+})
+
+t.test('pullLatest', t => {
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/pull')
+    res.end(
+      JSON.stringify({
+        plans: {
+          'plan:foo@1': {},
+          'plan:foo@0': {},
+          'plan:bar@7': {},
+          'plan:foo@2': {},
+          'plan:bar@0': {},
+        },
+      })
+    )
+  })
+  server.listen(port, async () => {
+    t.same(await Tier.pullLatest(), {
+      plans: {
+        'plan:foo@2': {},
+        'plan:bar@7': {},
+      },
+    })
+    t.end()
+  })
+})
 t.test('phase', t => {
   const server = createServer((req, res) => {
     res.setHeader('connection', 'close')

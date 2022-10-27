@@ -84,6 +84,33 @@ export type FeatureName = `feature:${string}`
 const isFeatureName = (f: any): f is FeatureName =>
   typeof f === 'string' && f.startsWith('feature:')
 
+export interface Model {
+  plans: {
+    [p: PlanName]: Plan
+  }
+}
+export interface Plan {
+  title?: string
+  features?: {
+    [f: FeatureName]: FeatureDefinition
+  }
+  currency?: string
+  interval?: Interval
+}
+export type Interval = '@daily' | '@weekly' | '@monthly' | '@yearly'
+export interface FeatureDefinition {
+  title?: string
+  base?: number
+  tiers?: FeatureTier[]
+  mode?: Mode
+}
+export type Mode = 'graduated' | 'volume'
+export interface FeatureTier {
+  upto?: number
+  price?: number
+  base?: number
+}
+
 export interface Usage {
   feature: FeatureName
   used: number
@@ -200,6 +227,29 @@ const apiPost = async <TReq, TRes>(path: string, body: TReq): Promise<TRes> => {
 }
 
 // actual API methods
+async function pull(): Promise<Model> {
+  return await apiGet<Model>('/v1/pull')
+}
+
+// Same as Tier.pull, but only shows the latest version
+// of each plan, sorted lexically.  Experimental!
+async function pullLatest(): Promise<Model> {
+  const model = await Tier.pull()
+  const plans: {[k:PlanName]:Plan} = Object.create(null)
+  const latest: {[k:string]:string} = Object.create(null)
+  for (const id of Object.keys(model.plans)) {
+    const [name, version] = id.split('@')
+    if (!latest[name] || version.localeCompare(latest[name], 'en') > 0) {
+      latest[name] = version
+    }
+  }
+  for (const [name, version] of Object.entries(latest)) {
+    const id = `${name}@${version}` as PlanName
+    plans[id] = model.plans[id]
+  }
+  return { plans }
+}
+
 async function limits(org: OrgName): Promise<Limits> {
   return await apiGet<Limits>('/v1/limits', { org })
 }
@@ -287,6 +337,8 @@ const Tier = {
   subscribe,
   whois,
   phase,
+  pull,
+  pullLatest,
 }
 
 export default Tier

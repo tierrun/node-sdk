@@ -30,7 +30,7 @@ derived from the process id.
 
 If you start the sidecar in some other way, set
 `TIER_SIDECAR=<url>` in the environment, with the full `url` to
-the running sidecar.  For example:
+the running sidecar. For example:
 
 ```
 $ export TIER_SIDECAR=https://tier-sidecar.acme.com:4321
@@ -64,7 +64,7 @@ Write debugging output to `stderr`.
 
 #### `TIER_SIDECAR=<url>`
 
-Set to the full base URL of the tier sidecar.  Set this if you
+Set to the full base URL of the tier sidecar. Set this if you
 run the sidecar manually using `tier serve`.
 
 If not set, then the Tier SDK will spawn a sidecar on the first
@@ -166,7 +166,7 @@ Retrieve the Stripe Customer ID for an org.
 
 ### `phase(org)`
 
-Retrieve the current schedule phase for the org.  This provides a
+Retrieve the current schedule phase for the org. This provides a
 list of the features and plans that the org is currently
 subscribed to, which can be useful information when creating a
 user interface for upgrading/downgrading pricing plans.
@@ -174,18 +174,13 @@ user interface for upgrading/downgrading pricing plans.
 ```json
 {
   "effective": "2022-10-13T16:52:11-07:00",
-  "features": [
-    "feature:storage@plan:free@1",
-    "feature:transfer@plan:free@1"
-  ],
-  "plans": [
-    "plan:free@1"
-  ]
+  "features": ["feature:storage@plan:free@1", "feature:transfer@plan:free@1"],
+  "plans": ["plan:free@1"]
 }
 ```
 
 Note: This should **not** be used for checking entitlements and
-feature gating.  Instead, use the `Tier.limit()` method and check
+feature gating. Instead, use the `Tier.limit()` method and check
 the limit and usage for the feature in question.
 
 For example:
@@ -204,5 +199,44 @@ Instead, do this:
 const usage = await Tier.limit(`org:${customerID}`, 'feature:special')
 if (usage.limit < usage.used) {
   showSpecialFeature()
+}
+```
+
+### `pull()`
+
+Fetches the pricing model from Stripe.
+
+### `pullLatest()`
+
+**Experimental**
+
+Fetches the pricing model from Stripe, but only shows the plans
+with the highest versions (lexically sorted).  This can be useful
+in building pricing pages in your application (assuming that
+"highest lexically sorted plan version" is the one that you want
+to show, of course).
+
+For example, if `Tier.pull()` returns this:
+
+```json
+{
+  "plans": {
+    "plan:foo@1": {},
+    "plan:foo@0": {},
+    "plan:bar@7": {},
+    "plan:foo@2": {},
+    "plan:bar@0": {}
+  }
+}
+```
+
+then `Tier.pullLatest()` will return:
+
+```json
+{
+  "plans": {
+    "plan:foo@2": {},
+    "plan:bar@7": {}
+  }
 }
 ```

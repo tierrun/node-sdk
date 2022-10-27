@@ -53,10 +53,10 @@
     "@types/tap": "^15.0.6",
     "c8": "^7.11.3",
     "eslint-config-prettier": "^8.5.0",
+    "nock": "13.2",
     "prettier": "^2.6.2",
     "tap": "^16.3.0",
     "ts-node": "^10.9.1",
-    "nock": "13.2",
     "typescript": "^4.7.4"
   },
   "dependencies": {
