@@ -211,7 +211,7 @@ const apiGet = async <T>(
   return (await res.json()) as T
 }
 
-const apiPost = async <TReq, TRes>(path: string, body: TReq): Promise<TRes> => {
+const apiPost = async <TReq>(path: string, body: TReq): Promise<string> => {
   await Tier.init()
   const base = process.env.TIER_SIDECAR || `http://127.0.0.1:${port}`
   const u = new URL(path, base)
@@ -223,7 +223,7 @@ const apiPost = async <TReq, TRes>(path: string, body: TReq): Promise<TRes> => {
     body: JSON.stringify(body),
   })
   debugLog('POST', u.pathname)
-  return (await res.json()) as TRes
+  return await res.text()
 }
 
 // actual API methods
@@ -270,7 +270,7 @@ async function report(
   n: number = 1,
   at?: Date,
   clobber?: boolean
-): Promise<void> {
+): Promise<string> {
   const req: ReportRequest = {
     org,
     feature,
@@ -281,20 +281,20 @@ async function report(
   }
   req.clobber = !!clobber
 
-  return await apiPost<ReportRequest, void>('/v1/report', req)
+  return await apiPost<ReportRequest>('/v1/report', req)
 }
 
-async function subscribe(org: OrgName, phases: Phase[]): Promise<void>
+async function subscribe(org: OrgName, phases: Phase[]): Promise<string>
 async function subscribe(
   org: OrgName,
   features: Features | Features[],
   effective?: Date
-): Promise<void>
+): Promise<string>
 async function subscribe(
   org: OrgName,
   featuresOrPhases: Features | Features[] | Phase[],
   effective?: Date
-): Promise<void> {
+): Promise<string> {
   const phasesArg =
     Array.isArray(featuresOrPhases) && !featuresOrPhases.some(p => !isPhase(p))
   if (phasesArg && effective) {
@@ -307,7 +307,7 @@ async function subscribe(
     : [{ features: featuresOrPhases as unknown as Features[], effective }]
 
   const sr: SubscribeRequest = { org, phases }
-  return await apiPost<SubscribeRequest, void>('/v1/subscribe', sr)
+  return await apiPost<SubscribeRequest>('/v1/subscribe', sr)
 }
 
 async function whois(org: OrgName): Promise<WhoIsResponse> {

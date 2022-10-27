@@ -239,7 +239,7 @@ t.test('report', t => {
   })
 
   server.listen(port, async () => {
-    t.same(await Tier.report('org:o', 'feature:f'), { ok: true })
+    t.same(await Tier.report('org:o', 'feature:f'), '{"ok":true}')
     t.same(
       await Tier.report(
         'org:o',
@@ -248,7 +248,7 @@ t.test('report', t => {
         new Date('2022-10-24T21:26:24.438Z'),
         true
       ),
-      { ok: true }
+      '{"ok":true}'
     )
     t.end()
   })
@@ -311,7 +311,7 @@ t.test('subscribe', t => {
           features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
         },
       ]),
-      { ok: true }
+      '{"ok":true}'
     )
     t.same(
       await Tier.subscribe('org:o', [
@@ -325,10 +325,10 @@ t.test('subscribe', t => {
           features: ['feature:foo@plan:enterprise@1', 'plan:enterprise@2'],
         },
       ]),
-      { ok: true }
+      '{"ok":true}'
     )
 
-    t.same(await Tier.subscribe('org:o', 'plan:basic@0'), { ok: true })
+    t.same(await Tier.subscribe('org:o', 'plan:basic@0'), '{"ok":true}')
 
     t.same(
       await Tier.subscribe(
@@ -336,7 +336,7 @@ t.test('subscribe', t => {
         ['plan:basic@0', 'feature:f@plan:p@0'],
         new Date('2022-10-24T21:26:24.438Z')
       ),
-      { ok: true }
+      '{"ok":true}'
     )
 
     t.rejects(
