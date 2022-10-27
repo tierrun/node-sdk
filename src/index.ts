@@ -204,6 +204,16 @@ async function limits(org: OrgName): Promise<Limits> {
   return await apiGet<Limits>('/v1/limits', { org })
 }
 
+async function limit(org: OrgName, feature: FeatureName): Promise<Usage> {
+  const limits = await apiGet<Limits>('/v1/limits', { org })
+  for (const usage of limits.usage) {
+    if (usage.feature === feature) {
+      return usage
+    }
+  }
+  return { feature, used: 0, limit: 0 }
+}
+
 async function report(
   org: OrgName,
   feature: FeatureName,
@@ -272,6 +282,7 @@ const Tier = {
   isFeatures,
   isPhase,
   limits,
+  limit,
   report,
   subscribe,
   whois,

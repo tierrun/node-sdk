@@ -116,6 +116,29 @@ Retrieve the usage data and limits for an org.
 }
 ```
 
+### `limit(org, feature)`
+
+Retrieve the usage and limit data for an org and single feature.
+
+```json
+{
+  "feature": "feature:storage",
+  "used": 341,
+  "limit": 10000
+}
+```
+
+If the org does not have access to the feature, then an object is
+returned with `usage` and `limit` set to `0`.
+
+```json
+{
+  "feature": "feature:noaccess",
+  "used": 0,
+  "limit": 0
+}
+```
+
 ### `report(org, feature, [n = 1], [at = new Date()], [clobber = false])`
 
 Report usage of a feature by an org.
@@ -158,5 +181,28 @@ user interface for upgrading/downgrading pricing plans.
   "plans": [
     "plan:free@1"
   ]
+}
+```
+
+Note: This should **not** be used for checking entitlements and
+feature gating.  Instead, use the `Tier.limit()` method and check
+the limit and usage for the feature in question.
+
+For example:
+
+```
+// Do not do this!  You will regret it!
+const phase = await Tier.phase(`org:${customerID}`)
+if (phase.plans.some(plan => plan.startsWith('plan:pro')) {
+  showSpecialFeature()
+}
+```
+
+Instead, do this:
+
+```js
+const usage = await Tier.limit(`org:${customerID}`, 'feature:special')
+if (usage.limit < usage.used) {
+  showSpecialFeature()
 }
 ```

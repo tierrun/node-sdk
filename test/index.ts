@@ -13,6 +13,7 @@ t.match(Tier, {
   isFeatures: Function,
   isPhase: Function,
   limits: Function,
+  limit: Function,
   report: Function,
   subscribe: Function,
   whois: Function,
@@ -76,6 +77,48 @@ t.test('limits', t => {
   })
   server.listen(port, async () => {
     t.same(await Tier.limits('org:o'), { ok: true })
+    t.end()
+  })
+})
+
+t.test('limit', t => {
+  let reqs = 0
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    if (reqs++ === 1) {
+      server.close()
+    }
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/limits?org=org%3Ao')
+    res.end(
+      JSON.stringify({
+        org: 'org:o',
+        usage: [
+          {
+            feature: 'feature:storage',
+            used: 341,
+            limit: 10000,
+          },
+          {
+            feature: 'feature:transfer',
+            used: 234213,
+            limit: 10000,
+          },
+        ],
+      })
+    )
+  })
+  server.listen(port, async () => {
+    t.same(await Tier.limit('org:o', 'feature:storage'), {
+      feature: 'feature:storage',
+      used: 341,
+      limit: 10000,
+    })
+    t.same(await Tier.limit('org:o', 'feature:other'), {
+      feature: 'feature:other',
+      used: 0,
+      limit: 0,
+    })
     t.end()
   })
 })
