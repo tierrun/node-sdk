@@ -235,8 +235,8 @@ export async function pull(): Promise<Model> {
 // of each plan, sorted lexically.  Experimental!
 export async function pullLatest(): Promise<Model> {
   const model = await Tier.pull()
-  const plans: {[k:PlanName]:Plan} = Object.create(null)
-  const latest: {[k:string]:string} = Object.create(null)
+  const plans: { [k: PlanName]: Plan } = Object.create(null)
+  const latest: { [k: string]: string } = Object.create(null)
   for (const id of Object.keys(model.plans)) {
     const [name, version] = id.split('@')
     if (!latest[name] || version.localeCompare(latest[name], 'en') > 0) {
@@ -254,10 +254,16 @@ export async function limits(org: OrgName): Promise<Limits> {
   return await apiGet<Limits>('/v1/limits', { org })
 }
 
-export async function limit(org: OrgName, feature: FeatureName): Promise<Usage> {
+export async function limit(
+  org: OrgName,
+  feature: FeatureName
+): Promise<Usage> {
   const limits = await apiGet<Limits>('/v1/limits', { org })
   for (const usage of limits.usage) {
-    if (usage.feature === feature) {
+    if (
+      usage.feature === feature ||
+      usage.feature.startsWith(`${feature}@plan:`)
+    ) {
       return usage
     }
   }
@@ -314,7 +320,7 @@ export async function whois(org: OrgName): Promise<WhoIsResponse> {
   return await apiGet<WhoIsResponse>('/v1/whois', { org })
 }
 
-async function phase(org: OrgName): Promise<CurrentPhase> {
+export async function phase(org: OrgName): Promise<CurrentPhase> {
   const resp = await apiGet<CurrentPhaseResponse>('/v1/phase', { org })
   return {
     ...resp,
