@@ -44,7 +44,7 @@ Load the SDK via:
 import Tier from 'tier'
 
 // or, commonjs style
-const Tier = require('tier').default
+const Tier = require('tier')
 ```
 
 ### Environment Variables

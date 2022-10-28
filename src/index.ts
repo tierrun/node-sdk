@@ -17,7 +17,7 @@ const debugLog = debug
   ? (...m: any[]) => console.error('tier:', ...m)
   : () => {}
 
-const init = async () => {
+export const init = async () => {
   if (sidecarPID || process.env.TIER_SIDECAR) {
     return
   }
@@ -69,7 +69,7 @@ const init = async () => {
 }
 
 /* c8 ignore start */
-const exitHandler = (_: number, signal: string | null) => {
+export const exitHandler = (_: number, signal: string | null) => {
   if (sidecarPID) {
     process.kill(sidecarPID, signal || 'SIGTERM')
   }
@@ -77,11 +77,11 @@ const exitHandler = (_: number, signal: string | null) => {
 /* c8 ignore stop */
 
 export type OrgName = `org:${string}`
-const isOrgName = (o: any): o is OrgName =>
+export const isOrgName = (o: any): o is OrgName =>
   typeof o === 'string' && o.startsWith('org:')
 
 export type FeatureName = `feature:${string}`
-const isFeatureName = (f: any): f is FeatureName =>
+export const isFeatureName = (f: any): f is FeatureName =>
   typeof f === 'string' && f.startsWith('feature:')
 
 export interface Model {
@@ -128,13 +128,13 @@ export type PlanName = `plan:${string}@${string}`
 export type VersionedFeatureName = `${FeatureName}@${PlanName}`
 export type Features = PlanName | VersionedFeatureName
 
-const isPlanName = (p: any): p is PlanName =>
+export const isPlanName = (p: any): p is PlanName =>
   typeof p === 'string' && /^plan:[^@]+@[^@]+$/.test(p)
 
-const isVersionedFeatureName = (f: any): f is VersionedFeatureName =>
+export const isVersionedFeatureName = (f: any): f is VersionedFeatureName =>
   typeof f === 'string' && /^feature:[^@]+@plan:[^@]+@[^@]+$/.test(f)
 
-const isFeatures = (f: any): f is Features =>
+export const isFeatures = (f: any): f is Features =>
   isPlanName(f) || isVersionedFeatureName(f)
 
 export interface CurrentPhase {
@@ -156,7 +156,7 @@ export interface Phase {
 const isDate = (d: any): d is Date =>
   d && typeof d === 'object' && d instanceof Date
 
-const isPhase = (p: any): p is Phase =>
+export const isPhase = (p: any): p is Phase =>
   p &&
   typeof p === 'object' &&
   (p.effective === undefined || isDate(p.effective)) &&
@@ -227,13 +227,13 @@ const apiPost = async <TReq>(path: string, body: TReq): Promise<string> => {
 }
 
 // actual API methods
-async function pull(): Promise<Model> {
+export async function pull(): Promise<Model> {
   return await apiGet<Model>('/v1/pull')
 }
 
 // Same as Tier.pull, but only shows the latest version
 // of each plan, sorted lexically.  Experimental!
-async function pullLatest(): Promise<Model> {
+export async function pullLatest(): Promise<Model> {
   const model = await Tier.pull()
   const plans: {[k:PlanName]:Plan} = Object.create(null)
   const latest: {[k:string]:string} = Object.create(null)
@@ -250,11 +250,11 @@ async function pullLatest(): Promise<Model> {
   return { plans }
 }
 
-async function limits(org: OrgName): Promise<Limits> {
+export async function limits(org: OrgName): Promise<Limits> {
   return await apiGet<Limits>('/v1/limits', { org })
 }
 
-async function limit(org: OrgName, feature: FeatureName): Promise<Usage> {
+export async function limit(org: OrgName, feature: FeatureName): Promise<Usage> {
   const limits = await apiGet<Limits>('/v1/limits', { org })
   for (const usage of limits.usage) {
     if (usage.feature === feature) {
@@ -264,7 +264,7 @@ async function limit(org: OrgName, feature: FeatureName): Promise<Usage> {
   return { feature, used: 0, limit: 0 }
 }
 
-async function report(
+export async function report(
   org: OrgName,
   feature: FeatureName,
   n: number = 1,
@@ -284,13 +284,13 @@ async function report(
   return await apiPost<ReportRequest>('/v1/report', req)
 }
 
-async function subscribe(org: OrgName, phases: Phase[]): Promise<string>
-async function subscribe(
+export async function subscribe(org: OrgName, phases: Phase[]): Promise<string>
+export async function subscribe(
   org: OrgName,
   features: Features | Features[],
   effective?: Date
 ): Promise<string>
-async function subscribe(
+export async function subscribe(
   org: OrgName,
   featuresOrPhases: Features | Features[] | Phase[],
   effective?: Date
@@ -310,7 +310,7 @@ async function subscribe(
   return await apiPost<SubscribeRequest>('/v1/subscribe', sr)
 }
 
-async function whois(org: OrgName): Promise<WhoIsResponse> {
+export async function whois(org: OrgName): Promise<WhoIsResponse> {
   return await apiGet<WhoIsResponse>('/v1/whois', { org })
 }
 
