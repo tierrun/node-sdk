@@ -409,13 +409,12 @@ t.test('error POST', t => {
 })
 
 t.test('error POST', t => {
-  const expect =
-    {
-      org: 'org:o',
-      feature: 'feature:f',
-      n: 1,
-      clobber: false,
-    }
+  const expect = {
+    org: 'org:o',
+    feature: 'feature:f',
+    n: 1,
+    clobber: false,
+  }
 
   const server = createServer((req, res) => {
     res.setHeader('connection', 'close')
@@ -426,11 +425,13 @@ t.test('error POST', t => {
       const body = JSON.parse(Buffer.concat(chunks).toString())
       t.same(body, expect)
       res.statusCode = 404
-      res.end(JSON.stringify({
-        status: 404,
-        code: 'not_found',
-        message: 'Not Found',
-      }))
+      res.end(
+        JSON.stringify({
+          status: 404,
+          code: 'not_found',
+          message: 'Not Found',
+        })
+      )
       server.close()
     })
   })
@@ -467,13 +468,12 @@ t.test('weird error GET', t => {
 })
 
 t.test('weird error POST', t => {
-  const expect =
-    {
-      org: 'org:o',
-      feature: 'feature:f',
-      n: 1,
-      clobber: false,
-    }
+  const expect = {
+    org: 'org:o',
+    feature: 'feature:f',
+    n: 1,
+    clobber: false,
+  }
 
   const server = createServer((req, res) => {
     res.setHeader('connection', 'close')
@@ -490,15 +490,18 @@ t.test('weird error POST', t => {
   })
 
   server.listen(port, async () => {
-    await t.rejects(Tier.report('org:o', 'feature:f').catch(e => {
-      t.ok(Tier.isTierError(e))
-      throw e
-    }), {
-      status: 500,
-      message: 'Tier request failed',
-      requestData: expect,
-      responseData: 'not json lol',
-    })
+    await t.rejects(
+      Tier.report('org:o', 'feature:f').catch((e: any) => {
+        t.ok(Tier.isTierError(e))
+        throw e
+      }),
+      {
+        status: 500,
+        message: 'Tier request failed',
+        requestData: expect,
+        responseData: 'not json lol',
+      }
+    )
     t.end()
   })
 })
