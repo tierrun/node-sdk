@@ -47,6 +47,23 @@ import Tier from 'tier'
 const Tier = require('tier')
 ```
 
+### Error Handling
+
+All methods will raise a `TierError` object if there's a non-2xx
+response from the Tier sidecar, or if the response from a `GET`
+is not valid JSON.
+
+This Error subclass contains the following fields:
+
+* `status` - number, the HTTP status code received
+* `code` - Short string representation of the error, something like `not_found`
+* `message` - Human-readable explanation of the error.
+* `path` - The API path being accessed
+* `requestData` - The data sent to the API path (query string for
+  GETs, request body for POSTs.)
+* `responseData` - The response data returned by the API
+  endpoint.
+
 ### Environment Variables
 
 #### `STRIPE_API_KEY=<key>`

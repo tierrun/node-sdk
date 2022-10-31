@@ -356,4 +356,151 @@ t.test('subscribe', t => {
   })
 })
 
+t.test('error GET', t => {
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/whois?org=org%3Ao')
+    res.statusCode = 404
+    res.end(
+      JSON.stringify({
+        status: 404,
+        code: 'not_found',
+        message: 'Not Found',
+      })
+    )
+  })
+  server.listen(port, async () => {
+    await t.rejects(Tier.whois('org:o'), {
+      status: 404,
+      code: 'not_found',
+      message: 'Not Found',
+      requestData: { org: 'org:o' },
+    })
+    t.end()
+  })
+})
+
+t.test('error POST', t => {
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/whois?org=org%3Ao')
+    res.statusCode = 404
+    res.end(
+      JSON.stringify({
+        status: 404,
+        code: 'not_found',
+        message: 'Not Found',
+      })
+    )
+  })
+  server.listen(port, async () => {
+    await t.rejects(Tier.whois('org:o'), {
+      status: 404,
+      code: 'not_found',
+      message: 'Not Found',
+      requestData: { org: 'org:o' },
+    })
+    t.end()
+  })
+})
+
+t.test('error POST', t => {
+  const expect =
+    {
+      org: 'org:o',
+      feature: 'feature:f',
+      n: 1,
+      clobber: false,
+    }
+
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    t.equal(req.method, 'POST')
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      t.same(body, expect)
+      res.statusCode = 404
+      res.end(JSON.stringify({
+        status: 404,
+        code: 'not_found',
+        message: 'Not Found',
+      }))
+      server.close()
+    })
+  })
+
+  server.listen(port, async () => {
+    await t.rejects(Tier.report('org:o', 'feature:f'), {
+      status: 404,
+      code: 'not_found',
+      message: 'Not Found',
+      requestData: expect,
+    })
+    t.end()
+  })
+})
+
+t.test('weird error GET', t => {
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/whois?org=org%3Ao')
+    res.end('wtf lol')
+  })
+  server.listen(port, async () => {
+    await t.rejects(Tier.whois('org:o'), {
+      status: 200,
+      code: undefined,
+      message: 'Tier request failed',
+      requestData: { org: 'org:o' },
+      responseData: 'wtf lol',
+    })
+    t.end()
+  })
+})
+
+t.test('weird error POST', t => {
+  const expect =
+    {
+      org: 'org:o',
+      feature: 'feature:f',
+      n: 1,
+      clobber: false,
+    }
+
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    t.equal(req.method, 'POST')
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      t.same(body, expect)
+      res.statusCode = 500
+      res.end('not json lol')
+      server.close()
+    })
+  })
+
+  server.listen(port, async () => {
+    await t.rejects(Tier.report('org:o', 'feature:f').catch(e => {
+      t.ok(Tier.isTierError(e))
+      throw e
+    }), {
+      status: 500,
+      message: 'Tier request failed',
+      requestData: expect,
+      responseData: 'not json lol',
+    })
+    t.end()
+  })
+})
+
 t.test('called init', async () => t.equal(initCalled, true))

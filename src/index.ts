@@ -208,7 +208,18 @@ const apiGet = async <T>(
   }
   debugLog('GET', u.pathname)
   const res = await fetch(u.toString())
-  return (await res.json()) as T
+  const text = await res.text()
+  let responseData: any
+  try {
+    responseData = JSON.parse(text)
+  } catch (er) {
+    responseData = text
+    throw new TierError(path, query, res.status, text)
+  }
+  if (res.status !== 200) {
+    throw new TierError(path, query, res.status, responseData)
+  }
+  return responseData as T
 }
 
 const apiPost = async <TReq>(path: string, body: TReq): Promise<string> => {
@@ -223,7 +234,53 @@ const apiPost = async <TReq>(path: string, body: TReq): Promise<string> => {
     body: JSON.stringify(body),
   })
   debugLog('POST', u.pathname)
+  if (res.status < 200 || res.status > 299) {
+    let responseData: any
+    const text = await res.text()
+    try {
+      responseData = JSON.parse(text)
+    } catch (e) {
+      responseData = text
+    }
+    throw new TierError(path, body, res.status, responseData)
+  }
   return await res.text()
+}
+
+interface ErrorResponse {
+  status: number
+  code: string
+  message: string
+}
+const isErrorResponse = (e: any): e is ErrorResponse =>
+  e &&
+  typeof e === 'object' &&
+  typeof e.status === 'number' &&
+  typeof e.message === 'string' &&
+  typeof e.code === 'string'
+
+export const isTierError = (e: any): e is TierError =>
+  !!e && typeof e === 'object' && e instanceof TierError
+
+export class TierError extends Error {
+  public path: string
+  public requestData: any
+  public status: number
+  public code?: string
+  public responseData: any
+
+  constructor(path: string, reqBody: any, status: number, resBody: any) {
+    if (isErrorResponse(resBody)) {
+      super(resBody.message)
+      this.code = resBody.code
+    } else {
+      super('Tier request failed')
+    }
+    this.path = path
+    this.requestData = reqBody
+    this.status = status
+    this.responseData = resBody
+  }
 }
 
 // actual API methods
@@ -345,6 +402,8 @@ const Tier = {
   phase,
   pull,
   pullLatest,
+  TierError,
+  isTierError,
 }
 
 export default Tier
