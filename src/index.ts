@@ -5,7 +5,30 @@
 // TODO: handle tier errors in a nice consistent way
 
 import { ChildProcess, spawn } from 'child_process'
-import fetch from 'node-fetch'
+
+import type {
+  CurrentPhase,
+  FeatureName,
+  Features,
+  Limits,
+  Model,
+  OrgName,
+  Phase,
+  PushResponse,
+  Usage,
+  WhoIsResponse,
+} from './client'
+
+// just use node-fetch as a polyfill for old node environments
+let fetchPromise: Promise<void> | null = null
+let FETCH = global.fetch
+if (typeof FETCH !== 'function') {
+  fetchPromise = import('node-fetch').then(f => {
+    //@ts-ignore
+    FETCH = f.default
+    fetchPromise = null
+  })
+}
 
 let sidecarPID: number | undefined
 let initting: undefined | Promise<void>
@@ -18,6 +41,15 @@ const debugLog = debug
   : () => {}
 
 export const init = async () => {
+  /* c8 ignore start */
+  if (!FETCH) {
+    await fetchPromise
+    if (!FETCH) {
+      throw new Error('could not find a fetch implementation')
+    }
+  }
+  /* c8 ignore stop */
+
   if (sidecarPID || process.env.TIER_SIDECAR) {
     return
   }
@@ -51,9 +83,9 @@ export const init = async () => {
         debugLog('sidecar closed', sidecarPID)
         sidecarPID = undefined
         delete process.env.TIER_SIDECAR
-        process.removeListener('exit', Tier.exitHandler)
+        process.removeListener('exit', exitHandler)
       })
-      process.on('exit', Tier.exitHandler)
+      process.on('exit', exitHandler)
       proc.unref()
       process.env.TIER_SIDECAR = `http://127.0.0.1:${port}`
       sidecarPID = proc.pid
@@ -76,255 +108,42 @@ export const exitHandler = (_: number, signal: string | null) => {
 }
 /* c8 ignore stop */
 
-export type OrgName = `org:${string}`
-export const isOrgName = (o: any): o is OrgName =>
-  typeof o === 'string' && o.startsWith('org:')
-
-export type FeatureName = `feature:${string}`
-export const isFeatureName = (f: any): f is FeatureName =>
-  typeof f === 'string' && f.startsWith('feature:')
-
-export interface Model {
-  plans: {
-    [p: PlanName]: Plan
+const getClient = async (): Promise<Tier> => {
+  await TIER.init()
+  /* c8 ignore start */
+  if (typeof process.env.TIER_SIDECAR !== 'string') {
+    throw new Error('failed sidecar initialization')
   }
-}
-export interface Plan {
-  title?: string
-  features?: {
-    [f: FeatureName]: FeatureDefinition
-  }
-  currency?: string
-  interval?: Interval
-}
-export type Interval = '@daily' | '@weekly' | '@monthly' | '@yearly'
-export interface FeatureDefinition {
-  title?: string
-  base?: number
-  tiers?: FeatureTier[]
-  mode?: Mode
-}
-export type Mode = 'graduated' | 'volume'
-export interface FeatureTier {
-  upto?: number
-  price?: number
-  base?: number
-}
-
-export interface Usage {
-  feature: FeatureName
-  used: number
-  limit: number
-}
-
-// same as Usage, but with strings for dates
-export interface Limits {
-  org: OrgName
-  usage: Usage[]
-}
-
-// XXX too clever for older ts versions?
-export type PlanName = `plan:${string}@${string}`
-export type VersionedFeatureName = `${FeatureName}@${PlanName}`
-export type Features = PlanName | VersionedFeatureName
-
-export const isPlanName = (p: any): p is PlanName =>
-  typeof p === 'string' && /^plan:[^@]+@[^@]+$/.test(p)
-
-export const isVersionedFeatureName = (f: any): f is VersionedFeatureName =>
-  typeof f === 'string' && /^feature:[^@]+@plan:[^@]+@[^@]+$/.test(f)
-
-export const isFeatures = (f: any): f is Features =>
-  isPlanName(f) || isVersionedFeatureName(f)
-
-export interface CurrentPhase {
-  effective: Date
-  features: VersionedFeatureName[]
-  plans: PlanName[]
-}
-interface CurrentPhaseResponse {
-  effective: string
-  features: VersionedFeatureName[]
-  plans: PlanName[]
-}
-
-export interface Phase {
-  effective?: Date
-  features: Features[]
-}
-
-const isDate = (d: any): d is Date =>
-  d && typeof d === 'object' && d instanceof Date
-
-export const isPhase = (p: any): p is Phase =>
-  p &&
-  typeof p === 'object' &&
-  (p.effective === undefined || isDate(p.effective)) &&
-  Array.isArray(p.features) &&
-  !p.features.some((f: any) => !isFeatures(f))
-
-export interface SubscribeRequest {
-  org: OrgName
-  phases: Phase[]
-}
-
-export interface PhasesResponse {
-  org: OrgName
-  phases: Phase[]
-}
-
-export interface ReportRequest {
-  org: OrgName
-  feature: FeatureName
-  n?: number
-  at?: Date
-  clobber?: boolean
-}
-
-export interface WhoIsResponse {
-  org: OrgName
-  stripe_id: string
-}
-
-const apiGet = async <T>(
-  path: string,
-  query?: { [k: string]: string | string[] }
-): Promise<T> => {
-  await Tier.init()
-  const base = process.env.TIER_SIDECAR || `http://127.0.0.1:${port}`
-  const u = new URL(path, base)
-  if (query) {
-    for (const [k, v] of Object.entries(query)) {
-      /* c8 ignore start */
-      if (Array.isArray(v)) {
-        for (const value of v) {
-          u.searchParams.append(k, value)
-        }
-        /* c8 ignore stop */
-      } else {
-        u.searchParams.set(k, v)
-      }
-    }
-  }
-  debugLog('GET', u.pathname)
-  const res = await fetch(u.toString())
-  const text = await res.text()
-  let responseData: any
-  try {
-    responseData = JSON.parse(text)
-  } catch (er) {
-    responseData = text
-    throw new TierError(path, query, res.status, text)
-  }
-  if (res.status !== 200) {
-    throw new TierError(path, query, res.status, responseData)
-  }
-  return responseData as T
-}
-
-const apiPost = async <TReq>(path: string, body: TReq): Promise<string> => {
-  await Tier.init()
-  const base = process.env.TIER_SIDECAR || `http://127.0.0.1:${port}`
-  const u = new URL(path, base)
-  const res = await fetch(u.toString(), {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(body),
+  /* c8 ignore stop */
+  return new Tier({
+    sidecar: process.env.TIER_SIDECAR as string,
+    debug,
+    fetchImpl: FETCH,
   })
-  debugLog('POST', u.pathname)
-  if (res.status < 200 || res.status > 299) {
-    let responseData: any
-    const text = await res.text()
-    try {
-      responseData = JSON.parse(text)
-    } catch (e) {
-      responseData = text
-    }
-    throw new TierError(path, body, res.status, responseData)
-  }
-  return await res.text()
-}
-
-interface ErrorResponse {
-  status: number
-  code: string
-  message: string
-}
-const isErrorResponse = (e: any): e is ErrorResponse =>
-  e &&
-  typeof e === 'object' &&
-  typeof e.status === 'number' &&
-  typeof e.message === 'string' &&
-  typeof e.code === 'string'
-
-export const isTierError = (e: any): e is TierError =>
-  !!e && typeof e === 'object' && e instanceof TierError
-
-export class TierError extends Error {
-  public path: string
-  public requestData: any
-  public status: number
-  public code?: string
-  public responseData: any
-
-  constructor(path: string, reqBody: any, status: number, resBody: any) {
-    if (isErrorResponse(resBody)) {
-      super(resBody.message)
-      this.code = resBody.code
-    } else {
-      super('Tier request failed')
-    }
-    this.path = path
-    this.requestData = reqBody
-    this.status = status
-    this.responseData = resBody
-  }
 }
 
 // actual API methods
 export async function pull(): Promise<Model> {
-  return await apiGet<Model>('/v1/pull')
+  const tier = await getClient()
+  return tier.pull()
 }
 
-// Same as Tier.pull, but only shows the latest version
-// of each plan, sorted lexically.  Experimental!
 export async function pullLatest(): Promise<Model> {
-  const model = await Tier.pull()
-  const plans: { [k: PlanName]: Plan } = Object.create(null)
-  const latest: { [k: string]: string } = Object.create(null)
-  for (const id of Object.keys(model.plans)) {
-    const [name, version] = id.split('@')
-    if (!latest[name] || version.localeCompare(latest[name], 'en') > 0) {
-      latest[name] = version
-    }
-  }
-  for (const [name, version] of Object.entries(latest)) {
-    const id = `${name}@${version}` as PlanName
-    plans[id] = model.plans[id]
-  }
-  return { plans }
+  const tier = await getClient()
+  return tier.pullLatest()
 }
 
 export async function limits(org: OrgName): Promise<Limits> {
-  return await apiGet<Limits>('/v1/limits', { org })
+  const tier = await getClient()
+  return tier.limits(org)
 }
 
 export async function limit(
   org: OrgName,
   feature: FeatureName
 ): Promise<Usage> {
-  const limits = await apiGet<Limits>('/v1/limits', { org })
-  for (const usage of limits.usage) {
-    if (
-      usage.feature === feature ||
-      usage.feature.startsWith(`${feature}@plan:`)
-    ) {
-      return usage
-    }
-  }
-  return { feature, used: 0, limit: 0 }
+  const tier = await getClient()
+  return tier.limit(org, feature)
 }
 
 export async function report(
@@ -333,18 +152,9 @@ export async function report(
   n: number = 1,
   at?: Date,
   clobber?: boolean
-): Promise<string> {
-  const req: ReportRequest = {
-    org,
-    feature,
-    n,
-  }
-  if (at) {
-    req.at = at
-  }
-  req.clobber = !!clobber
-
-  return await apiPost<ReportRequest>('/v1/report', req)
+): Promise<{}> {
+  const tier = await getClient()
+  return tier.report(org, feature, n, at, clobber)
 }
 
 export async function subscribe(org: OrgName, phases: Phase[]): Promise<string>
@@ -357,53 +167,62 @@ export async function subscribe(
   org: OrgName,
   featuresOrPhases: Features | Features[] | Phase[],
   effective?: Date
-): Promise<string> {
-  const phasesArg =
-    Array.isArray(featuresOrPhases) && !featuresOrPhases.some(p => !isPhase(p))
-  if (phasesArg && effective) {
-    throw new TypeError('effective date should be set in phase objects')
-  }
-  const phases: Phase[] = phasesArg
-    ? (featuresOrPhases as Phase[])
-    : !Array.isArray(featuresOrPhases)
-    ? [{ features: [featuresOrPhases], effective }]
-    : [{ features: featuresOrPhases as unknown as Features[], effective }]
-
-  const sr: SubscribeRequest = { org, phases }
-  return await apiPost<SubscribeRequest>('/v1/subscribe', sr)
+): Promise<{}> {
+  const tier = await getClient()
+  return tier.subscribe(org, featuresOrPhases, effective)
 }
 
 export async function whois(org: OrgName): Promise<WhoIsResponse> {
-  return await apiGet<WhoIsResponse>('/v1/whois', { org })
+  const tier = await getClient()
+  return tier.whois(org)
 }
 
 export async function phase(org: OrgName): Promise<CurrentPhase> {
-  const resp = await apiGet<CurrentPhaseResponse>('/v1/phase', { org })
-  return {
-    ...resp,
-    effective: new Date(resp.effective),
-  }
+  const tier = await getClient()
+  return tier.phase(org)
 }
 
-const Tier = {
+export async function push(model: Model): Promise<PushResponse> {
+  const tier = await getClient()
+  return tier.push(model)
+}
+
+import {
+  isErrorResponse,
+  isFeatureName,
+  isFeatures,
+  isOrgName,
+  isPhase,
+  isPlanName,
+  isTierError,
+  isVersionedFeatureName,
+  Tier,
+} from './client'
+
+export * from './client'
+
+const TIER = {
+  isErrorResponse,
+  isFeatureName,
+  isFeatures,
+  isOrgName,
+  isPhase,
+  isPlanName,
+  isTierError,
+  isVersionedFeatureName,
+  Tier,
   init,
   exitHandler,
-  isOrgName,
-  isFeatureName,
-  isPlanName,
-  isVersionedFeatureName,
-  isFeatures,
-  isPhase,
-  limits,
+
   limit,
-  report,
-  subscribe,
-  whois,
+  limits,
   phase,
   pull,
   pullLatest,
-  TierError,
-  isTierError,
+  push,
+  report,
+  subscribe,
+  whois,
 }
 
-export default Tier
+export default TIER

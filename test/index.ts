@@ -1,6 +1,6 @@
 import { createServer } from 'http'
 import t from 'tap'
-import Tier from '../'
+import Tier, { PushResponse } from '../'
 const port = 10000 + (process.pid % 10000)
 
 t.match(Tier, {
@@ -18,6 +18,7 @@ t.match(Tier, {
   subscribe: Function,
   whois: Function,
   phase: Function,
+  push: Function,
 })
 
 // fake the init for these tests
@@ -25,6 +26,7 @@ let initCalled = false
 // @ts-ignore
 Tier.init = () => {
   initCalled = true
+  process.env.TIER_SIDECAR = `http://localhost:${port}`
 }
 
 t.equal(initCalled, false, 'have not called init')
@@ -239,7 +241,7 @@ t.test('report', t => {
   })
 
   server.listen(port, async () => {
-    t.same(await Tier.report('org:o', 'feature:f'), '{"ok":true}')
+    t.same(await Tier.report('org:o', 'feature:f'), { ok: true })
     t.same(
       await Tier.report(
         'org:o',
@@ -248,7 +250,7 @@ t.test('report', t => {
         new Date('2022-10-24T21:26:24.438Z'),
         true
       ),
-      '{"ok":true}'
+      { ok: true }
     )
     t.end()
   })
@@ -311,7 +313,7 @@ t.test('subscribe', t => {
           features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
         },
       ]),
-      '{"ok":true}'
+      { ok: true }
     )
     t.same(
       await Tier.subscribe('org:o', [
@@ -325,10 +327,10 @@ t.test('subscribe', t => {
           features: ['feature:foo@plan:enterprise@1', 'plan:enterprise@2'],
         },
       ]),
-      '{"ok":true}'
+      { ok: true }
     )
 
-    t.same(await Tier.subscribe('org:o', 'plan:basic@0'), '{"ok":true}')
+    t.same(await Tier.subscribe('org:o', 'plan:basic@0'), { ok: true })
 
     t.same(
       await Tier.subscribe(
@@ -336,7 +338,7 @@ t.test('subscribe', t => {
         ['plan:basic@0', 'feature:f@plan:p@0'],
         new Date('2022-10-24T21:26:24.438Z')
       ),
-      '{"ok":true}'
+      { ok: true }
     )
 
     t.rejects(
@@ -352,6 +354,46 @@ t.test('subscribe', t => {
       )
     )
 
+    t.end()
+  })
+})
+
+t.test('push', t => {
+  const expect = {
+    plans: {
+      'plan:foo@1': {
+        features: {
+          'feature:bar': {},
+        },
+      },
+    },
+  }
+  const response: PushResponse = {
+    results: [
+      {
+        feature: 'feature:bar@plan:foo@1',
+        status: 'ok',
+        reason: 'created',
+      },
+    ],
+  }
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'POST')
+    t.equal(req.url, '/v1/push')
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      t.same(body, expect)
+      res.end(JSON.stringify(response))
+    })
+  })
+
+  server.listen(port, async () => {
+    const actual = await Tier.push(expect)
+    t.same(actual, response)
     t.end()
   })
 })

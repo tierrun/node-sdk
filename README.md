@@ -19,39 +19,70 @@ This is the SDK that can may be used to integrate Tier into your
 application. More details on the general concepts used by Tier
 may be found at <https://www.tier.run/docs/>.
 
-## API
+The SDK works by talking to an instance of the Tier binary
+running as a sidecar, using `tier serve`.
 
-To operate on live Stripe data, set `TIER_LIVE=1` in the
-environment prior to using the SDK.
+## USAGE
 
-The Tier sidecar will be started automatically on the first API
-call, responding only to requests from `localhost`, on a port
-derived from the process id.
+Note: the Tier client is not designed to be used in web browsers.
 
-If you start the sidecar in some other way, set
-`TIER_SIDECAR=<url>` in the environment, with the full `url` to
-the running sidecar. For example:
+This module exports both a zero-dependency client class, suitable
+for use in non-Node.js environments such as edge workers and
+Deno, as well as a simple functional SDK that manages spinning up
+the sidecar automatically.
 
+### Automatic Mode
+
+Import the main module, and use the API methods provided.  The
+sidecar will be started on the first API method, or may be
+started immediately using the `init()` method.  It will listen on
+a port determined by the process ID.
+
+To point at a pre-existing running Tier sidecar, set the
+`TIER_SIDECAR` environment variable to its base URL.
+
+To operate on live Stripe data (that is, to start the sidecar in
+live mode), set `TIER_LIVE=1` in the environment.
+
+Turn on debug output by setting `TIER_DEBUG=1` or
+`NODE_DEBUG=tier` in the environment.
+
+Note that you must have previously run [`tier
+connect`](https://tier.run/docs/cli/connect) to authorize Tier to
+access your Stripe account, or set the `STRIPE_API_KEY`
+environment variable.
+
+This of course requires that Node's `child_process` module is
+available.  If `fetch` is not available, then the optional
+`node-fetch` dependency will be loaded as a polyfill.
+
+### Client Mode
+
+To use Tier in an environment where `child_process.spawn` is not
+available, or where you simply don't need this added
+functionality because you are managing the sidecar yourself, you
+can load and instantiate the client:
+
+```ts
+import { Tier } from 'tier/client'
+
+const tier = new Tier({
+  // Required: the base url to the running `tier serve` instance
+  sidecar: myTierSidecarBaseURL,
+  // Optional, only needed if fetch global is not available
+  fetchImpl: myFetchImplementation,
+  // Optional, defaults to false
+  debug: false
+})
 ```
-$ export TIER_SIDECAR=https://tier-sidecar.acme.com:4321
-$ npm start
-```
 
-Load the SDK via:
-
-```js
-// typescript or esmodule style
-import Tier from 'tier'
-
-// or, commonjs style
-const Tier = require('tier')
-```
+Then call API methods from the tier instance.
 
 ### Error Handling
 
 All methods will raise a `TierError` object if there's a non-2xx
-response from the Tier sidecar, or if the response from a `GET`
-is not valid JSON.
+response from the Tier sidecar, or if a response is not valid
+JSON.
 
 This Error subclass contains the following fields:
 
@@ -64,28 +95,7 @@ This Error subclass contains the following fields:
 * `responseData` - The response data returned by the API
   endpoint.
 
-### Environment Variables
-
-#### `STRIPE_API_KEY=<key>`
-
-If set to a stripe secret key, then this will be used instead of
-the key geneated for `tier connect`.
-
-If you do not set `STRIPE_API_KEY` in the environment, then you
-must run [`tier connect`](https://tier.run/docs/cli/connect) to
-authorize the tier client to access your Stripe account.
-
-#### `TIER_DEBUG=1`, `NODE_DEBUG=tier`
-
-Write debugging output to `stderr`.
-
-#### `TIER_SIDECAR=<url>`
-
-Set to the full base URL of the tier sidecar. Set this if you
-run the sidecar manually using `tier serve`.
-
-If not set, then the Tier SDK will spawn a sidecar on the first
-API call.
+## API METHODS
 
 ### `subscribe(org, plan, [effective])`
 
@@ -257,3 +267,15 @@ then `Tier.pullLatest()` will return:
   }
 }
 ```
+
+### `push(model)`
+
+Creates the `Product` and `Price` objects in Stripe corresponding
+to the supplied pricing Model (as would be found in a
+[`pricing.json` file](https://tier.run/docs/pricing.json)).
+
+Returns an object detailing which features were created, and
+which either had errors or already existed.  Note that a
+successful response from this method does not mean that _all_ of
+the features were created (since, for example, some may already
+exist), only that _some_ of them were.
