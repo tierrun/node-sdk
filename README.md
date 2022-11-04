@@ -38,6 +38,11 @@ sidecar will be started on the first API method, or may be
 started immediately using the `init()` method.  It will listen on
 a port determined by the process ID.
 
+```ts
+import tier from 'tier'
+// that's it, it'll start the sidecar as needed
+```
+
 To point at a pre-existing running Tier sidecar, set the
 `TIER_SIDECAR` environment variable to its base URL.
 
@@ -56,7 +61,7 @@ This of course requires that Node's `child_process` module is
 available.  If `fetch` is not available, then the optional
 `node-fetch` dependency will be loaded as a polyfill.
 
-### Client Mode
+### Raw Client Mode
 
 To use Tier in an environment where `child_process.spawn` is not
 available, or where you simply don't need this added
