@@ -222,7 +222,10 @@ export class Tier {
     return responseData as T
   }
 
-  private async apiPost<TReq, TRes = {}>(path: string, body: TReq): Promise<TRes> {
+  private async apiPost<TReq, TRes = {}>(
+    path: string,
+    body: TReq
+  ): Promise<TRes> {
     const u = new URL(path, this.sidecar)
     const res = await this.fetch(u.toString(), {
       method: 'POST',
@@ -242,7 +245,7 @@ export class Tier {
       }
       throw new TierError(path, body, res.status, responseData)
     }
-    return await res.json() as TRes
+    return (await res.json()) as TRes
   }
 
   async limits(org: OrgName): Promise<Limits> {
@@ -284,21 +287,27 @@ export class Tier {
 
   public async subscribe(
     org: OrgName,
-    featuresOrPhases: Features | Features[] | Phase[],
+    features: Features | Features[],
     effective?: Date
   ): Promise<{}> {
-    const phasesArg =
-      Array.isArray(featuresOrPhases) &&
-      !featuresOrPhases.some(p => !isPhase(p))
-    if (phasesArg && effective) {
-      throw new TypeError('effective date should be set in phase objects')
+    // deprecated overloading of subscribe() as schedule()
+    if (
+      Array.isArray(features) &&
+      !features.some(f => !isPhase(f)) &&
+      effective === undefined
+    ) {
+      const msg = `Using phase objects with subscribe() is deprecated, please use tier.schedule() for this use case.`
+      process.emitWarning(msg, 'DeprecationWarning')
+      return await this.schedule(org, features as unknown as Phase[])
     }
-    const phases: Phase[] = phasesArg
-      ? (featuresOrPhases as Phase[])
-      : !Array.isArray(featuresOrPhases)
-      ? [{ features: [featuresOrPhases], effective }]
-      : [{ features: featuresOrPhases as unknown as Features[], effective }]
 
+    const phases: Phase[] = !Array.isArray(features)
+      ? [{ features: [features], effective }]
+      : [{ features, effective }]
+    return await this.schedule(org, phases)
+  }
+
+  public async schedule(org: OrgName, phases: Phase[]) {
     const sr: SubscribeRequest = { org, phases }
     return await this.apiPost<SubscribeRequest>('/v1/subscribe', sr)
   }

@@ -157,19 +157,21 @@ export async function report(
   return tier.report(org, feature, n, at, clobber)
 }
 
-export async function subscribe(org: OrgName, phases: Phase[]): Promise<string>
 export async function subscribe(
   org: OrgName,
   features: Features | Features[],
   effective?: Date
-): Promise<string>
-export async function subscribe(
-  org: OrgName,
-  featuresOrPhases: Features | Features[] | Phase[],
-  effective?: Date
 ): Promise<{}> {
   const tier = await getClient()
-  return tier.subscribe(org, featuresOrPhases, effective)
+  return await tier.subscribe(org, features, effective)
+}
+
+export async function schedule(
+  org: OrgName,
+  phases: Phase[]
+): Promise<{}> {
+  const tier = await getClient()
+  return await tier.schedule(org, phases)
 }
 
 export async function whois(org: OrgName): Promise<WhoIsResponse> {
@@ -222,6 +224,7 @@ const TIER = {
   push,
   report,
   subscribe,
+  schedule,
   whois,
 }
 

@@ -113,10 +113,10 @@ versioned plan names.
 If no effective date is provided, then the plan is effective
 immediately.
 
-### `subscribe(org, phases)`
+### `schedule(org, phases)`
 
-Subscribe an org to each of the sets of plans specified in the
-`phases` array.
+Create a subscription schedule phase for each of the sets of
+plans specified in the `phases` array.
 
 Each item in `phases` must be an object containing:
 

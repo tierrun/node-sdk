@@ -257,6 +257,13 @@ t.test('report', t => {
 })
 
 t.test('subscribe', t => {
+  const { emitWarning } = process
+  t.teardown(() => {
+    process.emitWarning = emitWarning
+  })
+  const WARNINGS: any[][] = []
+  process.emitWarning = (...m: any[]) => WARNINGS.push(m)
+
   const expects = [
     {
       org: 'org:o',
@@ -309,6 +316,7 @@ t.test('subscribe', t => {
   server.listen(port, async () => {
     t.same(
       await Tier.subscribe('org:o', [
+        //@ts-ignore
         {
           features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
         },
@@ -317,11 +325,13 @@ t.test('subscribe', t => {
     )
     t.same(
       await Tier.subscribe('org:o', [
+        //@ts-ignore
         {
           effective: new Date('2022-10-24T21:26:24.438Z'),
           features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
         },
 
+        //@ts-ignore
         {
           effective: new Date('2023-10-24T21:26:24.438Z'),
           features: ['feature:foo@plan:enterprise@1', 'plan:enterprise@2'],
@@ -341,7 +351,7 @@ t.test('subscribe', t => {
       { ok: true }
     )
 
-    t.rejects(
+    await t.rejects(
       Tier.subscribe(
         'org:o',
         [
@@ -354,6 +364,92 @@ t.test('subscribe', t => {
       )
     )
 
+    t.same(WARNINGS, [
+      [
+        'Using phase objects with subscribe() is deprecated, please use tier.schedule() for this use case.',
+        'DeprecationWarning',
+      ],
+      [
+        'Using phase objects with subscribe() is deprecated, please use tier.schedule() for this use case.',
+        'DeprecationWarning',
+      ],
+    ])
+
+    t.end()
+  })
+})
+
+t.test('schedule', t => {
+  const { emitWarning } = process
+  t.teardown(() => {
+    process.emitWarning = emitWarning
+  })
+  const WARNINGS: any[][] = []
+  process.emitWarning = (...m: any[]) => WARNINGS.push(m)
+
+  const expects = [
+    {
+      org: 'org:o',
+      phases: [
+        {
+          features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
+        },
+      ],
+    },
+    {
+      org: 'org:o',
+      phases: [
+        {
+          effective: '2022-10-24T21:26:24.438Z',
+          features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
+        },
+        {
+          effective: '2023-10-24T21:26:24.438Z',
+          features: ['feature:foo@plan:enterprise@1', 'plan:enterprise@2'],
+        },
+      ],
+    },
+  ]
+
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    t.equal(req.method, 'POST')
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      t.same(body, expects.shift())
+      res.end(JSON.stringify({ ok: true }))
+      if (!expects.length) {
+        server.close()
+      }
+    })
+  })
+
+  server.listen(port, async () => {
+    t.same(
+      await Tier.schedule('org:o', [
+        {
+          features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
+        },
+      ]),
+      { ok: true }
+    )
+    t.same(
+      await Tier.schedule('org:o', [
+        {
+          effective: new Date('2022-10-24T21:26:24.438Z'),
+          features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
+        },
+        {
+          effective: new Date('2023-10-24T21:26:24.438Z'),
+          features: ['feature:foo@plan:enterprise@1', 'plan:enterprise@2'],
+        },
+      ]),
+      { ok: true }
+    )
+
+    t.same(WARNINGS, [])
     t.end()
   })
 })
