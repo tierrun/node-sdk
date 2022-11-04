@@ -165,7 +165,7 @@ export class Tier {
 
   constructor({
     sidecar,
-    fetchImpl = fetch,
+    fetchImpl = globalThis.fetch,
     debug = false,
   }: {
     sidecar: string
