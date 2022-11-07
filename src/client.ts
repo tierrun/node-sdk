@@ -14,6 +14,7 @@ export interface Model {
     [p: PlanName]: Plan
   }
 }
+
 export interface Plan {
   title?: string
   features?: {
@@ -22,14 +23,18 @@ export interface Plan {
   currency?: string
   interval?: Interval
 }
+
 export type Interval = '@daily' | '@weekly' | '@monthly' | '@yearly'
+
 export interface FeatureDefinition {
   title?: string
   base?: number
   tiers?: FeatureTier[]
   mode?: Mode
 }
+
 export type Mode = 'graduated' | 'volume'
+
 export interface FeatureTier {
   upto?: number
   price?: number
@@ -48,7 +53,6 @@ export interface Limits {
   usage: Usage[]
 }
 
-// XXX too clever for older ts versions?
 export type PlanName = `plan:${string}@${string}`
 export type VersionedFeatureName = `${FeatureName}@${PlanName}`
 export type Features = PlanName | VersionedFeatureName
