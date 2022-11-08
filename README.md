@@ -70,18 +70,26 @@ can load and instantiate the client:
 
 ```ts
 import { Tier } from 'tier/client'
+// or, if you don't have import maps:
+// import { Tier } from 'https://unpkg.com/tier@^3.1.0/lib/client.js'
 
 const tier = new Tier({
   // Required: the base url to the running `tier serve` instance
   sidecar: myTierSidecarBaseURL,
+
   // Optional, only needed if fetch global is not available
-  fetchImpl: myFetchImplementation,
-  // Optional, defaults to false
-  debug: false
+  // fetchImpl: myFetchImplementation,
+
+  // Optional, defaults to false, will make a lot of
+  // console.error() calls.
+  // debug: false
 })
 ```
 
 Then call API methods from the tier instance.
+
+This is how you can use the Tier SDK from Cloudflare Workers,
+Deno, and other non-Node JavaScript environments.
 
 ### Error Handling
 
