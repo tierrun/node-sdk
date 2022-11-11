@@ -54,26 +54,28 @@ export interface Limits {
 }
 
 export type PlanName = `plan:${string}@${string}`
-export type VersionedFeatureName = `${FeatureName}@${PlanName}`
-export type Features = PlanName | VersionedFeatureName
+export type FeatureNameVersioned = `${FeatureName}@${PlanName}`
+export type VersionedFeatureName = FeatureNameVersioned
+export type Features = PlanName | FeatureNameVersioned
 
 export const isPlanName = (p: any): p is PlanName =>
   typeof p === 'string' && /^plan:[^@]+@[^@]+$/.test(p)
 
-export const isVersionedFeatureName = (f: any): f is VersionedFeatureName =>
+export const isFeatureNameVersioned = (f: any): f is FeatureNameVersioned =>
   typeof f === 'string' && /^feature:[^@]+@plan:[^@]+@[^@]+$/.test(f)
+export const isVersionedFeatureName = isFeatureNameVersioned
 
 export const isFeatures = (f: any): f is Features =>
-  isPlanName(f) || isVersionedFeatureName(f)
+  isPlanName(f) || isFeatureNameVersioned(f)
 
 export interface CurrentPhase {
   effective: Date
-  features: VersionedFeatureName[]
+  features: FeatureNameVersioned[]
   plans: PlanName[]
 }
 interface CurrentPhaseResponse {
   effective: string
-  features: VersionedFeatureName[]
+  features: FeatureNameVersioned[]
   plans: PlanName[]
 }
 
@@ -116,13 +118,21 @@ export interface WhoIsResponse {
 }
 
 export interface PushResult {
-  feature: VersionedFeatureName
+  feature: FeatureNameVersioned
   status: string
   reason: string
 }
 
 export interface PushResponse {
   results?: PushResult[]
+}
+
+export interface WhoAmIResponse {
+  id: string
+  email: string
+  key_source: string
+  isolated: boolean
+  url: string
 }
 
 // errors
@@ -351,5 +361,9 @@ export class Tier {
 
   async push(model: Model): Promise<PushResponse> {
     return await this.apiPost<Model, PushResponse>('/v1/push', model)
+  }
+
+  async whoami(): Promise<WhoAmIResponse> {
+    return await this.apiGet<WhoAmIResponse>('/v1/whoami')
   }
 }

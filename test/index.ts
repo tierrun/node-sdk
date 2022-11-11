@@ -17,6 +17,7 @@ t.match(Tier, {
   report: Function,
   subscribe: Function,
   whois: Function,
+  whoami: Function,
   phase: Function,
   push: Function,
 })
@@ -204,6 +205,20 @@ t.test('whois', t => {
   })
   server.listen(port, async () => {
     t.same(await Tier.whois('org:o'), { ok: true })
+    t.end()
+  })
+})
+
+t.test('whoami', t => {
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/whoami')
+    res.end(JSON.stringify({ ok: true }))
+  })
+  server.listen(port, async () => {
+    t.same(await Tier.whoami(), { ok: true })
     t.end()
   })
 })

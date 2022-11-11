@@ -203,6 +203,10 @@ Retrieve the Stripe Customer ID for an org.
 }
 ```
 
+### `whoami()`
+
+Retrieve information about the current logged in Stripe account.
+
 ### `phase(org)`
 
 Retrieve the current schedule phase for the org. This provides a

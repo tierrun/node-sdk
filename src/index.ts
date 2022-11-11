@@ -17,7 +17,8 @@ import type {
   PushResponse,
   Usage,
   WhoIsResponse,
-} from './client.js'
+  WhoAmIResponse,
+} from './client'
 
 // just use node-fetch as a polyfill for old node environments
 let fetchPromise: Promise<void> | null = null
@@ -166,10 +167,7 @@ export async function subscribe(
   return await tier.subscribe(org, features, effective)
 }
 
-export async function schedule(
-  org: OrgName,
-  phases: Phase[]
-): Promise<{}> {
+export async function schedule(org: OrgName, phases: Phase[]): Promise<{}> {
   const tier = await getClient()
   return await tier.schedule(org, phases)
 }
@@ -177,6 +175,11 @@ export async function schedule(
 export async function whois(org: OrgName): Promise<WhoIsResponse> {
   const tier = await getClient()
   return tier.whois(org)
+}
+
+export async function whoami(): Promise<WhoAmIResponse> {
+  const tier = await getClient()
+  return tier.whoami()
 }
 
 export async function phase(org: OrgName): Promise<CurrentPhase> {
@@ -198,6 +201,7 @@ import {
   isPlanName,
   isTierError,
   isVersionedFeatureName,
+  isFeatureNameVersioned,
   Tier,
 } from './client.js'
 
@@ -212,6 +216,7 @@ const TIER = {
   isPlanName,
   isTierError,
   isVersionedFeatureName,
+  isFeatureNameVersioned,
   Tier,
   init,
   exitHandler,
@@ -226,6 +231,7 @@ const TIER = {
   subscribe,
   schedule,
   whois,
+  whoami,
 }
 
 export default TIER

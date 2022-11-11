@@ -33,7 +33,7 @@ t.afterEach(async () => {
   // always just kill the sidecar process between tests
   if (SPAWN_PROC) {
     // @ts-ignore
-    let t:Timer|undefined = undefined
+    let t: Timer | undefined = undefined
     const p = new Promise<void>(res => {
       t = setTimeout(() => res(), 200)
       if (SPAWN_PROC) {
