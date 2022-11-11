@@ -33,9 +33,9 @@ the sidecar automatically.
 
 ### Automatic Mode
 
-Import the main module, and use the API methods provided.  The
+Import the main module, and use the API methods provided. The
 sidecar will be started on the first API method, or may be
-started immediately using the `init()` method.  It will listen on
+started immediately using the `init()` method. It will listen on
 a port determined by the process ID.
 
 ```ts
@@ -52,13 +52,12 @@ live mode), set `TIER_LIVE=1` in the environment.
 Turn on debug output by setting `TIER_DEBUG=1` or
 `NODE_DEBUG=tier` in the environment.
 
-Note that you must have previously run [`tier
-connect`](https://tier.run/docs/cli/connect) to authorize Tier to
+Note that you must have previously run [`tier connect`](https://tier.run/docs/cli/connect) to authorize Tier to
 access your Stripe account, or set the `STRIPE_API_KEY`
 environment variable.
 
 This of course requires that Node's `child_process` module is
-available.  If `fetch` is not available, then the optional
+available. If `fetch` is not available, then the optional
 `node-fetch` dependency will be loaded as a polyfill.
 
 ### Raw Client Mode
@@ -99,13 +98,13 @@ JSON.
 
 This Error subclass contains the following fields:
 
-* `status` - number, the HTTP status code received
-* `code` - Short string representation of the error, something like `not_found`
-* `message` - Human-readable explanation of the error.
-* `path` - The API path being accessed
-* `requestData` - The data sent to the API path (query string for
+- `status` - number, the HTTP status code received
+- `code` - Short string representation of the error, something like `not_found`
+- `message` - Human-readable explanation of the error.
+- `path` - The API path being accessed
+- `requestData` - The data sent to the API path (query string for
   GETs, request body for POSTs.)
-* `responseData` - The response data returned by the API
+- `responseData` - The response data returned by the API
   endpoint.
 
 ## API METHODS
@@ -251,7 +250,7 @@ Fetches the pricing model from Stripe.
 **Experimental**
 
 Fetches the pricing model from Stripe, but only shows the plans
-with the highest versions (lexically sorted).  This can be useful
+with the highest versions (lexically sorted). This can be useful
 in building pricing pages in your application (assuming that
 "highest lexically sorted plan version" is the one that you want
 to show, of course).
@@ -288,7 +287,7 @@ to the supplied pricing Model (as would be found in a
 [`pricing.json` file](https://tier.run/docs/pricing.json)).
 
 Returns an object detailing which features were created, and
-which either had errors or already existed.  Note that a
+which either had errors or already existed. Note that a
 successful response from this method does not mean that _all_ of
 the features were created (since, for example, some may already
 exist), only that _some_ of them were.
