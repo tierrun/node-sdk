@@ -31,7 +31,7 @@
     "postversion": "npm publish",
     "prepublishOnly": "git push origin --follow-tags",
     "postpublish": "rm -rf dist",
-    "typedoc": "typedoc ./src/*.ts"
+    "typedoc": "typedoc --tsconfig tsconfig-esm.json ./src/*.ts"
   },
   "prettier": {
     "semi": false,
