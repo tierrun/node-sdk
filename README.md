@@ -71,7 +71,7 @@ can load and instantiate the client:
 ```ts
 import { Tier } from 'tier/client'
 // or, if you don't have import maps:
-// import { Tier } from 'https://unpkg.com/tier@^3.1.0/lib/client.js'
+// import { Tier } from 'https://unpkg.com/tier@^3.2.0/dist/mjs/client.js'
 
 const tier = new Tier({
   // Required: the base url to the running `tier serve` instance

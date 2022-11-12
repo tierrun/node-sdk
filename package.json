@@ -2,28 +2,35 @@
   "name": "tier",
   "version": "3.1.0",
   "files": [
-    "lib"
+    "dist"
   ],
-  "main": "lib/index.js",
+  "main": "dist/cjs/index.js",
+  "module": "dist/mjs/index.js",
   "exports": {
-    ".": "./lib/index.js",
-    "./client": "./lib/client.js"
+    ".": {
+      "import": "./dist/mjs/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./client": {
+      "import": "./dist/mjs/client.js",
+      "require": "./dist/cjs/client.js"
+    }
   },
   "description": "SDK for using https://tier.run in Node.js applications",
   "repository": "https://github.com/tierrun/node-sdk",
   "author": "Isaac Z. Schlueter <i@izs.me> (https://izs.me)",
   "license": "ISC",
   "scripts": {
-    "prepare": "tsc",
+    "prepare": "tsc -p tsconfig-cjs.json && tsc -p tsconfig-esm.json && bash fixup.sh",
     "format": "prettier --write . --loglevel warn",
     "test": "c8 tap test/*.ts",
     "snap": "c8 tap test/*.ts",
-    "pretest": "tsc",
-    "presnap": "tsc",
+    "pretest": "npm run prepare",
+    "presnap": "npm run prepare",
     "preversion": "npm test",
     "postversion": "npm publish",
     "prepublishOnly": "git push origin --follow-tags",
-    "postpublish": "rm -rf lib",
+    "postpublish": "rm -rf dist",
     "typedoc": "typedoc ./src/*.ts"
   },
   "prettier": {
