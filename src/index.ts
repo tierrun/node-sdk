@@ -17,7 +17,7 @@ import type {
   PushResponse,
   Usage,
   WhoIsResponse,
-} from './client'
+} from './client.js'
 
 // just use node-fetch as a polyfill for old node environments
 let fetchPromise: Promise<void> | null = null
@@ -199,9 +199,9 @@ import {
   isTierError,
   isVersionedFeatureName,
   Tier,
-} from './client'
+} from './client.js'
 
-export * from './client'
+export * from './client.js'
 
 const TIER = {
   isErrorResponse,

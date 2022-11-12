@@ -2,8 +2,10 @@
 /*
 /.*
 /lib
+/dist
 !/.naverc
-!/tsconfig.json
+!/tsconfig*.json
+!/fixup.sh
 !/cli-packages
 !/bin
 !/src
