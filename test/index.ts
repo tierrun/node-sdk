@@ -1,6 +1,6 @@
 import { createServer } from 'http'
 import t from 'tap'
-import Tier, { PushResponse } from '../'
+import Tier, { OrgInfo, PushResponse } from '../'
 const port = 10000 + (process.pid % 10000)
 
 t.match(Tier, {
@@ -20,6 +20,8 @@ t.match(Tier, {
   whoami: Function,
   phase: Function,
   push: Function,
+  lookupOrg: Function,
+  updateOrg: Function,
 })
 
 // fake the init for these tests
@@ -201,10 +203,10 @@ t.test('whois', t => {
     server.close()
     t.equal(req.method, 'GET')
     t.equal(req.url, '/v1/whois?org=org%3Ao')
-    res.end(JSON.stringify({ ok: true }))
+    res.end(JSON.stringify({ org: 'org:o', stripe_id: 'cust_1234' }))
   })
   server.listen(port, async () => {
-    t.same(await Tier.whois('org:o'), { ok: true })
+    t.same(await Tier.whois('org:o'), { org: 'org:o', stripe_id: 'cust_1234' })
     t.end()
   })
 })
@@ -655,6 +657,58 @@ t.test('weird error POST', t => {
         responseData: 'not json lol',
       }
     )
+    t.end()
+  })
+})
+
+t.test('updateOrg', t => {
+  const expect: OrgInfo = {
+    email: 'x@y.com',
+    name: 'Test User',
+    description: '',
+    phone: '+15558675309',
+    metadata: {
+      ok: 'true',
+    },
+  }
+  const response = {}
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'POST')
+    t.equal(req.url, '/v1/subscribe')
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      t.same(body, { org: 'org:o', info: expect })
+      res.end(JSON.stringify(response))
+    })
+  })
+
+  server.listen(port, async () => {
+    const actual = await Tier.updateOrg('org:o', expect)
+    t.same(actual, response)
+    t.end()
+  })
+})
+
+t.test('lookupOrg', t => {
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/whois?org=org%3Ao&include=info')
+    res.end(
+      JSON.stringify({ org: 'org:o', stripe_id: 'cust_1234', email: 'x@y.com' })
+    )
+  })
+  server.listen(port, async () => {
+    t.same(await Tier.lookupOrg('org:o'), {
+      org: 'org:o',
+      stripe_id: 'cust_1234',
+      email: 'x@y.com',
+    })
     t.end()
   })
 })

@@ -11,14 +11,16 @@ import type {
   FeatureName,
   Features,
   Limits,
+  LookupOrgResponse,
   Model,
+  OrgInfo,
   OrgName,
   Phase,
   PushResponse,
   Usage,
-  WhoIsResponse,
   WhoAmIResponse,
-} from './client'
+  WhoIsResponse,
+} from './client.js'
 
 // just use node-fetch as a polyfill for old node environments
 let fetchPromise: Promise<void> | null = null
@@ -161,20 +163,35 @@ export async function report(
 export async function subscribe(
   org: OrgName,
   features: Features | Features[],
-  effective?: Date
+  effective?: Date,
+  info?: OrgInfo
 ): Promise<{}> {
   const tier = await getClient()
-  return await tier.subscribe(org, features, effective)
+  return await tier.subscribe(org, features, effective, info)
 }
 
-export async function schedule(org: OrgName, phases: Phase[]): Promise<{}> {
+export async function schedule(
+  org: OrgName,
+  phases?: Phase[],
+  info?: OrgInfo
+): Promise<{}> {
   const tier = await getClient()
-  return await tier.schedule(org, phases)
+  return await tier.schedule(org, phases, info)
+}
+
+export async function updateOrg(org: OrgName, info: OrgInfo): Promise<{}> {
+  const tier = await getClient()
+  return await tier.updateOrg(org, info)
 }
 
 export async function whois(org: OrgName): Promise<WhoIsResponse> {
   const tier = await getClient()
   return tier.whois(org)
+}
+
+export async function lookupOrg(org: OrgName): Promise<LookupOrgResponse> {
+  const tier = await getClient()
+  return tier.lookupOrg(org)
 }
 
 export async function whoami(): Promise<WhoAmIResponse> {
@@ -195,13 +212,13 @@ export async function push(model: Model): Promise<PushResponse> {
 import {
   isErrorResponse,
   isFeatureName,
+  isFeatureNameVersioned,
   isFeatures,
   isOrgName,
   isPhase,
   isPlanName,
   isTierError,
   isVersionedFeatureName,
-  isFeatureNameVersioned,
   Tier,
 } from './client.js'
 
@@ -230,7 +247,9 @@ const TIER = {
   report,
   subscribe,
   schedule,
+  updateOrg,
   whois,
+  lookupOrg,
   whoami,
 }
 

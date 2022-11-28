@@ -109,7 +109,7 @@ This Error subclass contains the following fields:
 
 ## API METHODS
 
-### `subscribe(org, plan, [effective])`
+### `subscribe(org, plan, [effective, [info]])`
 
 Subscribe an org to the specified plan. If no effective date is
 provided, then the plan is effective immediately.
@@ -120,7 +120,10 @@ versioned plan names.
 If no effective date is provided, then the plan is effective
 immediately.
 
-### `schedule(org, phases)`
+If `info` is provided, it updates the org with info in the same
+way as calling `updateOrg(org, info)`.
+
+### `schedule(org, phases, [info])`
 
 Create a subscription schedule phase for each of the sets of
 plans specified in the `phases` array.
@@ -132,6 +135,25 @@ Each item in `phases` must be an object containing:
 
 If no effective date is provided, then the phase takes effect
 immediately.
+
+If `info` is provided, it updates the org with info in the same
+way as calling `updateOrg(org, info)`.
+
+### `updateOrg(org, info)`
+
+Update the specified org with the supplied information.
+
+`info` is an object containing the following fields:
+
+- `email` string
+- `name` string
+- `description` string
+- `phone` string
+- `metadata` Object with any arbitrary keys and `string` values
+
+Note that any string fields that are missing will result in that
+data being removed from the org's Customer record in Stripe, as
+if `''` was specified.
 
 ### `limits(org)`
 

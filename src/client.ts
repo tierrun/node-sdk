@@ -149,7 +149,8 @@ export const isPhase = (p: any): p is Phase =>
 
 export interface SubscribeRequest {
   org: OrgName
-  phases: Phase[]
+  phases?: Phase[]
+  info?: OrgInfo
 }
 
 export interface PhasesResponse {
@@ -169,6 +170,16 @@ export interface WhoIsResponse {
   org: OrgName
   stripe_id: string
 }
+
+export interface OrgInfo {
+  email: string
+  name: string
+  description: string
+  phone: string
+  metadata: { [key: string]: string }
+}
+
+export type LookupOrgResponse = WhoIsResponse & OrgInfo
 
 export interface PushResult {
   feature: FeatureNameVersioned
@@ -273,7 +284,7 @@ export class Tier {
         }
       }
     }
-    this.debugLog('GET', u.pathname)
+    this.debugLog('GET', u.toString())
     const res = await this.fetch(u.toString())
     const text = await res.text()
     let responseData: any
@@ -301,7 +312,7 @@ export class Tier {
       },
       body: JSON.stringify(body),
     })
-    this.debugLog('POST', u.pathname)
+    this.debugLog('POST', u.pathname, body)
     if (res.status < 200 || res.status > 299) {
       let responseData: any
       const text = await res.text()
@@ -355,7 +366,8 @@ export class Tier {
   public async subscribe(
     org: OrgName,
     features: Features | Features[],
-    effective?: Date
+    effective?: Date,
+    info?: OrgInfo
   ): Promise<{}> {
     // deprecated overloading of subscribe() as schedule()
     if (
@@ -371,16 +383,35 @@ export class Tier {
     const phases: Phase[] = !Array.isArray(features)
       ? [{ features: [features], effective }]
       : [{ features, effective }]
-    return await this.schedule(org, phases)
+    return await this.schedule(org, phases, info)
   }
 
-  public async schedule(org: OrgName, phases: Phase[]) {
-    const sr: SubscribeRequest = { org, phases }
+  public async schedule(org: OrgName, phases?: Phase[], info?: OrgInfo) {
+    const sr: SubscribeRequest = { org, phases, info }
+    return await this.apiPost<SubscribeRequest>('/v1/subscribe', sr)
+  }
+
+  public async updateOrg(org: OrgName, info: OrgInfo) {
+    const sr: SubscribeRequest = { org, info }
     return await this.apiPost<SubscribeRequest>('/v1/subscribe', sr)
   }
 
   public async whois(org: OrgName): Promise<WhoIsResponse> {
-    return await this.apiGet<WhoIsResponse>('/v1/whois', { org })
+    // don't send back an `info:null`
+    const res = await this.apiGet<WhoIsResponse>('/v1/whois', { org })
+    return {
+      org: res.org,
+      stripe_id: res.stripe_id,
+    }
+  }
+
+  // note: same endpoint as whois, but when include=info is set, this hits
+  // stripe every time and cannot be cached.
+  public async lookupOrg(org: OrgName): Promise<LookupOrgResponse> {
+    return await this.apiGet<LookupOrgResponse>('/v1/whois', {
+      org,
+      include: 'info',
+    })
   }
 
   public async phase(org: OrgName): Promise<CurrentPhase> {
