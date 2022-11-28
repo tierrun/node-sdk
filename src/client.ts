@@ -3,17 +3,38 @@
 
 export type OrgName = `org:${string}`
 export const isOrgName = (o: any): o is OrgName =>
-  typeof o === 'string' && o.startsWith('org:')
+  typeof o === 'string' && o.startsWith('org:') && o !== 'org:'
 
 export type FeatureName = `feature:${string}`
 export const isFeatureName = (f: any): f is FeatureName =>
-  typeof f === 'string' && f.startsWith('feature:')
+  typeof f === 'string' &&
+  f.startsWith('feature:') &&
+  !f.includes('@') &&
+  f !== 'feature:'
 
 export interface Model {
   plans: {
     [p: PlanName]: Plan
   }
 }
+
+// just keeping the double-negative in one place, since I so often
+// type this wrong and get annoyed.
+const isVArray = (arr: any[], valTest: (v: any) => boolean) =>
+  !arr.some(v => !valTest(v))
+
+const isKV = (
+  obj: any,
+  keyTest: (k: string) => boolean,
+  valTest: (v: any) => boolean
+): boolean =>
+  !!obj &&
+  typeof obj === 'object' &&
+  isVArray(Object.keys(obj), keyTest) &&
+  isVArray(Object.values(obj), valTest)
+
+export const isModel = (m: any): m is Model =>
+  !!m && typeof m === 'object' && isKV(m.plans, isPlanName, isPlan)
 
 export interface Plan {
   title?: string
@@ -24,7 +45,18 @@ export interface Plan {
   interval?: Interval
 }
 
+export const isPlan = (p: any): p is Plan =>
+  !!p &&
+  typeof p === 'object' &&
+  (p.title === undefined || typeof p.title === 'string') &&
+  (p.features === undefined ||
+    isKV(p.features, isFeatureName, isFeatureDefinition)) &&
+  (p.currency === undefined || typeof p.currency === 'string') &&
+  (p.interval === undefined || isInterval(p.interval))
+
 export type Interval = '@daily' | '@weekly' | '@monthly' | '@yearly'
+export const isInterval = (i: any): i is Interval =>
+  i === '@daily' || i === '@weekly' || i === '@monthly' || i === '@yearly'
 
 export interface FeatureDefinition {
   title?: string
@@ -32,14 +64,35 @@ export interface FeatureDefinition {
   tiers?: FeatureTier[]
   mode?: Mode
 }
+export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
+  !!f &&
+  typeof f === 'object' &&
+  (f.title === undefined || typeof f.title === 'string') &&
+  (f.base === undefined ||
+    (typeof f.base === 'number' && f.base === Math.floor(f.base))) &&
+  (f.mode === undefined || isMode(f.mode)) &&
+  (f.tiers === undefined ||
+    (Array.isArray(f.tiers) && isVArray(f.tiers, isFeatureTier))) &&
+  !(f.base !== undefined && f.tiers)
 
 export type Mode = 'graduated' | 'volume'
+export const isMode = (m: any): m is Mode => m === 'graduated' || m === 'volume'
 
 export interface FeatureTier {
   upto?: number
   price?: number
   base?: number
 }
+
+export const isFeatureTier = (t: any): t is FeatureTier =>
+  !!t &&
+  typeof t === 'object' &&
+  (t.upto === undefined ||
+    (typeof t.upto === 'number' && t.upto === Math.floor(t.upto))) &&
+  (t.price === undefined ||
+    (typeof t.price === 'number' && t.price === Math.floor(t.price))) &&
+  (t.base === undefined ||
+    (typeof t.base === 'number' && t.base === Math.floor(t.base)))
 
 export interface Usage {
   feature: FeatureName
