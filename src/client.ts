@@ -63,7 +63,12 @@ export interface FeatureDefinition {
   base?: number
   tiers?: FeatureTier[]
   mode?: Mode
+  aggregate?: Aggregate
 }
+export type Aggregate = 'sum' | 'max' | 'last' | 'perpetual'
+export const isAggregate = (a: any): a is Aggregate =>
+  a === 'sum' || a === 'max' || a === 'last' || a === 'perpetual'
+
 export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
   !!f &&
   typeof f === 'object' &&
@@ -73,7 +78,8 @@ export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
   (f.mode === undefined || isMode(f.mode)) &&
   (f.tiers === undefined ||
     (Array.isArray(f.tiers) && isVArray(f.tiers, isFeatureTier))) &&
-  !(f.base !== undefined && f.tiers)
+  !(f.base !== undefined && f.tiers) &&
+  (f.aggregate === undefined || isAggregate(f.aggregate))
 
 export type Mode = 'graduated' | 'volume'
 export const isMode = (m: any): m is Mode => m === 'graduated' || m === 'volume'

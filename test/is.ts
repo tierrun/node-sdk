@@ -1,5 +1,6 @@
 import t from 'tap'
 import {
+  isAggregate,
   isFeatureDefinition,
   isFeatureName,
   isFeatureNameVersioned,
@@ -20,6 +21,18 @@ t.test('isMode', t => {
   t.notOk(isMode('true'))
   t.notOk(isMode(null))
   t.notOk(isMode(false))
+  t.end()
+})
+
+t.test('isAggregate', t => {
+  t.ok(isAggregate('sum'))
+  t.ok(isAggregate('max'))
+  t.ok(isAggregate('last'))
+  t.ok(isAggregate('perpetual'))
+  t.notOk(isAggregate(true))
+  t.notOk(isAggregate('true'))
+  t.notOk(isAggregate(null))
+  t.notOk(isAggregate(false))
   t.end()
 })
 
@@ -114,7 +127,7 @@ t.test('isOrgName', t => {
 t.test('isFeatureDefinition', t => {
   t.ok(isFeatureDefinition({}))
   t.ok(isFeatureDefinition({ tiers: [] }))
-  t.ok(isFeatureDefinition({ title: 'x', base: 1 }))
+  t.ok(isFeatureDefinition({ title: 'x', base: 1, aggregate: 'sum' }))
   t.ok(
     isFeatureDefinition({
       title: 'x',
@@ -140,41 +153,58 @@ t.test('isFeatureDefinition', t => {
       tiers: [{ base: 'tiers valid' }],
     })
   )
+  t.notOk(isFeatureDefinition({ base: 123, aggregate: 'yolo' }))
   t.end()
 })
 
 t.test('isPlan', t => {
   t.notOk(isPlan(null))
   t.notOk(isPlan(true))
-  t.notOk(isPlan({
-    title: { not: 'a string' },
-  }))
-  t.notOk(isPlan({
-    features: {
-      'not a feature name': {}
-    },
-  }))
+  t.notOk(
+    isPlan({
+      title: { not: 'a string' },
+    })
+  )
+  t.notOk(
+    isPlan({
+      features: {
+        'not a feature name': {},
+      },
+    })
+  )
   t.ok(isPlan({}))
-  t.ok(isPlan({
-    features: {
-      'feature:name': {}
-    }
-  }))
-  t.notOk(isPlan({
-    currency: { not: 'a currency string' },
-  }))
-  t.ok(isPlan({
-    currency: 'usd'
-  }))
-  t.notOk(isPlan({
-    interval: { not: 'an interval string' },
-  }))
-  t.notOk(isPlan({
-    interval: 'not an interval string'
-  }))
-  t.ok(isPlan({
-    interval: '@monthly'
-  }))
+  t.ok(
+    isPlan({
+      features: {
+        'feature:name': {},
+      },
+    })
+  )
+  t.notOk(
+    isPlan({
+      currency: { not: 'a currency string' },
+    })
+  )
+  t.ok(
+    isPlan({
+      currency: 'usd',
+    })
+  )
+  t.notOk(
+    isPlan({
+      interval: { not: 'an interval string' },
+    })
+  )
+  t.notOk(
+    isPlan({
+      interval: 'not an interval string',
+    })
+  )
+  t.ok(
+    isPlan({
+      interval: '@monthly',
+    })
+  )
   t.end()
 })
 
