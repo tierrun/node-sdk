@@ -111,6 +111,9 @@ t.test('isPlanName', t => {
   t.notOk(isPlanName(null))
   t.notOk(isPlanName(''))
   t.notOk(isPlanName(true))
+  t.notOk(isPlan({ currency: 'this is too long' }))
+  t.notOk(isPlan({ currency: 'USD' }), 'currency should be lowercase')
+  t.notOk(isPlan({ currency: 'eu' }), 'currency should 3 chars')
   t.end()
 })
 

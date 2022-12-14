@@ -42,13 +42,17 @@ export interface Plan {
   interval?: Interval
 }
 
+const isCurrency = (c: any): c is Plan['currency'] =>
+  c === undefined ||
+  (typeof c === 'string' && c.length === 3 && c === c.toLowerCase())
+
 export const isPlan = (p: any): p is Plan =>
   !!p &&
   typeof p === 'object' &&
   (p.title === undefined || typeof p.title === 'string') &&
   (p.features === undefined ||
     isKV(p.features, isFeatureName, isFeatureDefinition)) &&
-  (p.currency === undefined || typeof p.currency === 'string') &&
+  isCurrency(p.currency) &&
   (p.interval === undefined || isInterval(p.interval))
 
 export type Interval = '@daily' | '@weekly' | '@monthly' | '@yearly'
