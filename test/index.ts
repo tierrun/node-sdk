@@ -281,7 +281,7 @@ t.test('subscribe', t => {
   const WARNINGS: any[][] = []
   process.emitWarning = (...m: any[]) => WARNINGS.push(m)
 
-  const orgInfo:OrgInfo = {
+  const orgInfo: OrgInfo = {
     email: 'o@o.org',
     name: 'Orggy Org',
     description: 'describe them lolol',
@@ -381,15 +381,7 @@ t.test('subscribe', t => {
       { ok: true }
     )
 
-    t.same(
-      await Tier.subscribe(
-        'org:o',
-        [],
-        undefined,
-        orgInfo
-      ),
-      { ok: true }
-    )
+    t.same(await Tier.subscribe('org:o', [], undefined, orgInfo), { ok: true })
 
     await t.rejects(
       Tier.subscribe(

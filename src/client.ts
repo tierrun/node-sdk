@@ -7,10 +7,7 @@ export const isOrgName = (o: any): o is OrgName =>
 
 export type FeatureName = `feature:${string}`
 export const isFeatureName = (f: any): f is FeatureName =>
-  typeof f === 'string' &&
-  f.startsWith('feature:') &&
-  !f.includes('@') &&
-  f !== 'feature:'
+  typeof f === 'string' && /^feature:[a-zA-Z0-9:]+$/.test(f)
 
 export interface Model {
   plans: {
@@ -118,10 +115,11 @@ export type VersionedFeatureName = FeatureNameVersioned
 export type Features = PlanName | FeatureNameVersioned
 
 export const isPlanName = (p: any): p is PlanName =>
-  typeof p === 'string' && /^plan:[^@]+@[^@]+$/.test(p)
+  typeof p === 'string' && /^plan:[a-zA-Z0-9:]+@[a-zA-Z0-9]+$/.test(p)
 
 export const isFeatureNameVersioned = (f: any): f is FeatureNameVersioned =>
-  typeof f === 'string' && /^feature:[^@]+@plan:[^@]+@[^@]+$/.test(f)
+  typeof f === 'string' &&
+  /^feature:[a-zA-Z0-9:]+@plan:[a-zA-Z0-9:]+@[a-zA-Z0-9]+$/.test(f)
 export const isVersionedFeatureName = isFeatureNameVersioned
 
 export const isFeatures = (f: any): f is Features =>
@@ -389,7 +387,8 @@ export class Tier {
 
     const phases: Phase[] = !Array.isArray(features)
       ? [{ features: [features], effective }]
-      : features.length ? [{ features, effective }]
+      : features.length
+      ? [{ features, effective }]
       : []
     return await this.schedule(org, phases, info)
   }
