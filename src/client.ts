@@ -379,7 +379,8 @@ export class Tier {
     if (
       Array.isArray(features) &&
       !features.some(f => !isPhase(f)) &&
-      effective === undefined
+      effective === undefined &&
+      info === undefined
     ) {
       const msg = `Using phase objects with subscribe() is deprecated, please use tier.schedule() for this use case.`
       process.emitWarning(msg, 'DeprecationWarning')
@@ -388,7 +389,8 @@ export class Tier {
 
     const phases: Phase[] = !Array.isArray(features)
       ? [{ features: [features], effective }]
-      : [{ features, effective }]
+      : features.length ? [{ features, effective }]
+      : []
     return await this.schedule(org, phases, info)
   }
 

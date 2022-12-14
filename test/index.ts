@@ -281,6 +281,14 @@ t.test('subscribe', t => {
   const WARNINGS: any[][] = []
   process.emitWarning = (...m: any[]) => WARNINGS.push(m)
 
+  const orgInfo:OrgInfo = {
+    email: 'o@o.org',
+    name: 'Orggy Org',
+    description: 'describe them lolol',
+    phone: '+15558675309',
+    metadata: {},
+  }
+
   const expects = [
     {
       org: 'org:o',
@@ -312,6 +320,11 @@ t.test('subscribe', t => {
           features: ['plan:basic@0', 'feature:f@plan:p@0'],
         },
       ],
+    },
+    {
+      org: 'org:o',
+      phases: [],
+      info: orgInfo,
     },
   ]
 
@@ -364,6 +377,16 @@ t.test('subscribe', t => {
         'org:o',
         ['plan:basic@0', 'feature:f@plan:p@0'],
         new Date('2022-10-24T21:26:24.438Z')
+      ),
+      { ok: true }
+    )
+
+    t.same(
+      await Tier.subscribe(
+        'org:o',
+        [],
+        undefined,
+        orgInfo
       ),
       { ok: true }
     )
