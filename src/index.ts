@@ -220,6 +220,10 @@ import {
   isTierError,
   isVersionedFeatureName,
   Tier,
+  validatePlan,
+  validateModel,
+  validateFeatureTier,
+  validateFeatureDefinition,
 } from './client.js'
 
 export * from './client.js'
@@ -234,6 +238,11 @@ const TIER = {
   isTierError,
   isVersionedFeatureName,
   isFeatureNameVersioned,
+  validatePlan,
+  validateModel,
+  validateFeatureTier,
+  validateFeatureDefinition,
+
   Tier,
   init,
   exitHandler,

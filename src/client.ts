@@ -30,7 +30,15 @@ const isKV = (
   isVArray(Object.keys(obj), keyTest) &&
   isVArray(Object.values(obj), valTest)
 
-const hasOnly = (obj: {[k: string]:any}, ...keys:string[]): boolean => {
+const unexpectedFields = (
+  obj: { [k: string]: any },
+  ...keys: string[]
+): string[] => {
+  const expect = new Set<string>(keys)
+  return Object.keys(obj).filter(k => !expect.has(k))
+}
+
+const hasOnly = (obj: { [k: string]: any }, ...keys: string[]): boolean => {
   const expect = new Set<string>(keys)
   for (const k of Object.keys(obj)) {
     if (!expect.has(k)) {
@@ -41,8 +49,33 @@ const hasOnly = (obj: {[k: string]:any}, ...keys:string[]): boolean => {
 }
 
 export const isModel = (m: any): m is Model =>
-  !!m && typeof m === 'object' && isKV(m.plans, isPlanName, isPlan) &&
-    hasOnly(m, 'plans')
+  !!m &&
+  typeof m === 'object' &&
+  isKV(m.plans, isPlanName, isPlan) &&
+  hasOnly(m, 'plans')
+
+export const validateModel = (m: any): asserts m is Model => {
+  if (!m || typeof m !== 'object') {
+    throw 'not an object'
+  }
+  if (!m.plans || typeof m.plans !== 'object') {
+    throw 'missing or invalid plans, must be object'
+  }
+  for (const [pn, plan] of Object.entries(m.plans)) {
+    if (!isPlanName(pn)) {
+      throw `invalid plan name: ${pn}`
+    }
+    try {
+      validatePlan(plan as any)
+    } catch (er) {
+      throw `plans['${pn}']: ${er}`
+    }
+  }
+  const unexpected = unexpectedFields(m, 'plans')
+  if (unexpected.length !== 0) {
+    throw `unexpected field(s): ${unexpected.join(', ')}`
+  }
+}
 
 export interface Plan {
   title?: string
@@ -67,6 +100,46 @@ export const isPlan = (p: any): p is Plan =>
   (p.interval === undefined || isInterval(p.interval)) &&
   hasOnly(p, 'title', 'currency', 'interval', 'features')
 
+export const validatePlan: (p: any) => void = (p: any): asserts p is Plan => {
+  if (!p || typeof p !== 'object') {
+    throw 'not an object'
+  }
+  if (p.title !== undefined && typeof p.title !== 'string') {
+    throw 'invalid title, must be string'
+  }
+  if (p.features !== undefined) {
+    if (!p.features || typeof p.features !== 'object') {
+      throw 'invalid features field, must be object'
+    }
+    for (const [fn, fdef] of Object.entries(p.features)) {
+      if (!isFeatureName(fn)) {
+        throw `invalid feature name: ${fn}`
+      }
+      try {
+        validateFeatureDefinition(fdef)
+      } catch (er) {
+        throw `features['${fn}']: ${er}`
+      }
+    }
+  }
+  if (!isCurrency(p.currency)) {
+    throw `invalid currency: ${p.currency}`
+  }
+  if (p.interval !== undefined && !isInterval(p.interval)) {
+    throw `invalid interval: ${p.interval}`
+  }
+  const unexpected = unexpectedFields(
+    p,
+    'title',
+    'currency',
+    'interval',
+    'features'
+  )
+  if (unexpected.length !== 0) {
+    throw `unexpected field(s): ${unexpected.join(', ')}`
+  }
+}
+
 export type Interval = '@daily' | '@weekly' | '@monthly' | '@yearly'
 export const isInterval = (i: any): i is Interval =>
   i === '@daily' || i === '@weekly' || i === '@monthly' || i === '@yearly'
@@ -86,14 +159,59 @@ export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
   !!f &&
   typeof f === 'object' &&
   (f.title === undefined || typeof f.title === 'string') &&
-  (f.base === undefined ||
-    (typeof f.base === 'number' && f.base === Math.floor(f.base))) &&
+  (f.base === undefined || isInt(f.base)) &&
   (f.mode === undefined || isMode(f.mode)) &&
   (f.tiers === undefined ||
     (Array.isArray(f.tiers) && isVArray(f.tiers, isFeatureTier))) &&
   !(f.base !== undefined && f.tiers) &&
   (f.aggregate === undefined || isAggregate(f.aggregate)) &&
   hasOnly(f, 'base', 'tiers', 'mode', 'aggregate', 'title')
+
+export const validateFeatureDefinition: (f: any) => void = (
+  f: any
+): asserts f is FeatureDefinition => {
+  if (!f || typeof f !== 'object') {
+    throw 'not an object'
+  }
+  if (f.title !== undefined && typeof f.title !== 'string') {
+    throw 'title not a string'
+  }
+  if (f.base !== undefined && !isInt(f.base)) {
+    throw 'invalid base, must be integer'
+  }
+  if (f.mode !== undefined && !isMode(f.mode)) {
+    throw 'invalid mode'
+  }
+  if (f.tiers && f.base !== undefined) {
+    throw 'tiers and base cannot be set together'
+  }
+  if (f.tiers !== undefined) {
+    if (!Array.isArray(f.tiers)) {
+      throw 'non-array tiers field'
+    }
+    f.tiers.forEach((t: FeatureTier, i: number) => {
+      try {
+        validateFeatureTier(t)
+      } catch (er) {
+        throw `tiers[${i}]: ${er}`
+      }
+    })
+  }
+  if (f.aggregate !== undefined && !isAggregate(f.aggregate)) {
+    throw 'invalid aggregate'
+  }
+  const unexpected = unexpectedFields(
+    f,
+    'base',
+    'tiers',
+    'mode',
+    'aggregate',
+    'title'
+  )
+  if (unexpected.length) {
+    throw `unexpected field(s): ${unexpected.join(', ')}`
+  }
+}
 
 export type Mode = 'graduated' | 'volume'
 export const isMode = (m: any): m is Mode => m === 'graduated' || m === 'volume'
@@ -104,16 +222,36 @@ export interface FeatureTier {
   base?: number
 }
 
+const isInt = (n: any): boolean => typeof n === 'number' && n === Math.floor(n)
+
 export const isFeatureTier = (t: any): t is FeatureTier =>
   !!t &&
   typeof t === 'object' &&
-  (t.upto === undefined ||
-    (typeof t.upto === 'number' && t.upto === Math.floor(t.upto))) &&
-  (t.price === undefined ||
-    (typeof t.price === 'number' && t.price === Math.floor(t.price))) &&
-  (t.base === undefined ||
-    (typeof t.base === 'number' && t.base === Math.floor(t.base))) &&
+  (t.upto === undefined || isInt(t.upto)) &&
+  (t.price === undefined || isInt(t.price)) &&
+  (t.base === undefined || isInt(t.base)) &&
   hasOnly(t, 'upto', 'price', 'base')
+
+export const validateFeatureTier: (t: any) => void = (
+  t: any
+): asserts t is FeatureTier => {
+  if (!t || typeof t !== 'object') {
+    throw 'not an object'
+  }
+  if (t.upto !== undefined && !isInt(t.upto)) {
+    throw 'invalid upto, must be integer'
+  }
+  if (t.price !== undefined && !isInt(t.price)) {
+    throw 'invalid price, must be integer'
+  }
+  if (t.base !== undefined && !isInt(t.base)) {
+    throw 'invalid base, must be integer'
+  }
+  const unexpected = unexpectedFields(t, 'base', 'price', 'upto')
+  if (unexpected.length !== 0) {
+    throw `unexpected field(s): ${unexpected.join(', ')}`
+  }
+}
 
 export interface Usage {
   feature: FeatureName

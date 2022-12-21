@@ -12,6 +12,10 @@ import {
   isOrgName,
   isPlan,
   isPlanName,
+  validateFeatureDefinition,
+  validateFeatureTier,
+  validateModel,
+  validatePlan,
 } from '../'
 
 t.test('isMode', t => {
@@ -62,6 +66,33 @@ t.test('isFeatureTier', t => {
   t.notOk(isFeatureTier({ upto: 1.2 }))
   t.notOk(isFeatureTier({ other: 'thing' }))
   t.end()
+})
+
+t.test('validateFeatureTier', t => {
+  const cases = [
+    {},
+    { base: 123 },
+    { price: 1 },
+    { upto: 2 },
+    null,
+    { base: 'hello' },
+    { base: 1.2 },
+    { price: 'hello' },
+    { price: 1.2 },
+    { upto: 'hello' },
+    { upto: 1.2 },
+    { other: 'thing' },
+  ]
+  t.plan(cases.length)
+  for (const c of cases) {
+    let err: any
+    try {
+      validateFeatureTier(c)
+    } catch (er) {
+      err = er
+    }
+    t.matchSnapshot([err, c])
+  }
 })
 
 t.test('isFeatures', t => {
@@ -154,7 +185,7 @@ t.test('isFeatureDefinition', t => {
   )
   t.notOk(
     isFeatureDefinition({
-      tiers: [{ base: 'tiers valid' }],
+      tiers: [{ base: 'tier invalid' }],
     })
   )
   t.notOk(isFeatureDefinition({ base: 123, aggregate: 'yolo' }))
@@ -162,6 +193,47 @@ t.test('isFeatureDefinition', t => {
   // cannot have any other fields
   t.notOk(isFeatureDefinition({ heloo: 'world' }))
   t.end()
+})
+
+t.test('validateFeatureDefinition', t => {
+  const cases = [
+    null,
+    true,
+    {},
+    { tiers: [] },
+    { title: 'x', base: 1, aggregate: 'sum' },
+    { title: { not: 'a string' }},
+    {
+      title: 'x',
+      mode: 'graduated',
+      tiers: [{}],
+    },
+    { title: 'x', base: 1, tiers: [] },
+    {
+      mode: 'not a valid mode',
+    },
+    {
+      tiers: 'tiers not an array',
+    },
+    {
+      tiers: [{ base: 'tier invalid' }],
+    },
+    { base: 123, aggregate: 'yolo' },
+    { heloo: 'world' },
+    { tiers: { not: 'an array' } },
+    { tiers: [{}, { x: 1 }] },
+    { base: 1.2 },
+  ]
+  t.plan(cases.length)
+  for (const c of cases) {
+    let err: any
+    try {
+      validateFeatureDefinition(c)
+    } catch (er) {
+      err = er
+    }
+    t.matchSnapshot([err, c])
+  }
 })
 
 t.test('isPlan', t => {
@@ -216,6 +288,36 @@ t.test('isPlan', t => {
   t.end()
 })
 
+t.test('validatePlan', t => {
+  const cases = [
+    null,
+    true,
+    { title: { not: 'a string' } },
+    { features: null },
+    { features: 'not an object' },
+    { features: { 'not a feature name': {} } },
+    {},
+    { features: { 'feature:name': {} } },
+    { features: { 'feature:name': { tiers: [{ upto: 1 }, { x: true }] } } },
+    { currency: { not: 'a currency string' } },
+    { currency: 'usd' },
+    { interval: { not: 'an interval string' } },
+    { interval: 'not an interval string' },
+    { interval: '@monthly' },
+    { another: 'thing' },
+  ]
+  for (const c of cases) {
+    let err: any
+    try {
+      validatePlan(c)
+    } catch (er) {
+      err = er
+    }
+    t.matchSnapshot([err, c])
+  }
+  t.plan(cases.length)
+})
+
 t.test('isModel', t => {
   t.notOk(isModel(null))
   t.notOk(isModel(true))
@@ -234,6 +336,45 @@ t.test('isModel', t => {
       },
     })
   )
-  t.notOk(isModel({plans:{}, other: 'stuff'}), 'cannot have other stuff')
+  t.notOk(isModel({ plans: {}, other: 'stuff' }), 'cannot have other stuff')
+  t.end()
+})
+
+t.test('validateModel', t => {
+  const cases = [
+    null,
+    true,
+    {},
+    { plans: {} },
+    { plans: { 'plan:p@0': {} } },
+    { plans: { 'not a plan name': {} } },
+    {
+      plans: {
+        'plan:notaplan@0': {
+          features: {
+            'not a feature name': {},
+          },
+        },
+      },
+    },
+    { plans: {}, other: 'stuff' },
+    {
+      plans: {
+        'plan:x@1': {
+          features: { 'feature:name': { tiers: [{ upto: 1 }, { x: true }] } },
+        },
+      },
+    },
+  ]
+  t.plan(cases.length)
+  for (const c of cases) {
+    let err: any
+    try {
+      validateModel(c)
+    } catch (er) {
+      err = er
+    }
+    t.matchSnapshot([err, c])
+  }
   t.end()
 })
