@@ -60,6 +60,7 @@ t.test('isFeatureTier', t => {
   t.notOk(isFeatureTier({ price: 1.2 }))
   t.notOk(isFeatureTier({ upto: 'hello' }))
   t.notOk(isFeatureTier({ upto: 1.2 }))
+  t.notOk(isFeatureTier({ other: 'thing' }))
   t.end()
 })
 
@@ -157,6 +158,9 @@ t.test('isFeatureDefinition', t => {
     })
   )
   t.notOk(isFeatureDefinition({ base: 123, aggregate: 'yolo' }))
+
+  // cannot have any other fields
+  t.notOk(isFeatureDefinition({ heloo: 'world' }))
   t.end()
 })
 
@@ -208,6 +212,7 @@ t.test('isPlan', t => {
       interval: '@monthly',
     })
   )
+  t.notOk(isPlan({ another: 'thing' }), 'cannot have extra fields')
   t.end()
 })
 
@@ -229,5 +234,6 @@ t.test('isModel', t => {
       },
     })
   )
+  t.notOk(isModel({plans:{}, other: 'stuff'}), 'cannot have other stuff')
   t.end()
 })

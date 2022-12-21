@@ -30,8 +30,19 @@ const isKV = (
   isVArray(Object.keys(obj), keyTest) &&
   isVArray(Object.values(obj), valTest)
 
+const hasOnly = (obj: {[k: string]:any}, ...keys:string[]): boolean => {
+  const expect = new Set<string>(keys)
+  for (const k of Object.keys(obj)) {
+    if (!expect.has(k)) {
+      return false
+    }
+  }
+  return true
+}
+
 export const isModel = (m: any): m is Model =>
-  !!m && typeof m === 'object' && isKV(m.plans, isPlanName, isPlan)
+  !!m && typeof m === 'object' && isKV(m.plans, isPlanName, isPlan) &&
+    hasOnly(m, 'plans')
 
 export interface Plan {
   title?: string
@@ -53,7 +64,8 @@ export const isPlan = (p: any): p is Plan =>
   (p.features === undefined ||
     isKV(p.features, isFeatureName, isFeatureDefinition)) &&
   isCurrency(p.currency) &&
-  (p.interval === undefined || isInterval(p.interval))
+  (p.interval === undefined || isInterval(p.interval)) &&
+  hasOnly(p, 'title', 'currency', 'interval', 'features')
 
 export type Interval = '@daily' | '@weekly' | '@monthly' | '@yearly'
 export const isInterval = (i: any): i is Interval =>
@@ -80,7 +92,8 @@ export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
   (f.tiers === undefined ||
     (Array.isArray(f.tiers) && isVArray(f.tiers, isFeatureTier))) &&
   !(f.base !== undefined && f.tiers) &&
-  (f.aggregate === undefined || isAggregate(f.aggregate))
+  (f.aggregate === undefined || isAggregate(f.aggregate)) &&
+  hasOnly(f, 'base', 'tiers', 'mode', 'aggregate', 'title')
 
 export type Mode = 'graduated' | 'volume'
 export const isMode = (m: any): m is Mode => m === 'graduated' || m === 'volume'
@@ -99,7 +112,8 @@ export const isFeatureTier = (t: any): t is FeatureTier =>
   (t.price === undefined ||
     (typeof t.price === 'number' && t.price === Math.floor(t.price))) &&
   (t.base === undefined ||
-    (typeof t.base === 'number' && t.base === Math.floor(t.base)))
+    (typeof t.base === 'number' && t.base === Math.floor(t.base))) &&
+  hasOnly(t, 'upto', 'price', 'base')
 
 export interface Usage {
   feature: FeatureName
