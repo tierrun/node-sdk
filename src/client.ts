@@ -159,7 +159,7 @@ export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
   !!f &&
   typeof f === 'object' &&
   (f.title === undefined || typeof f.title === 'string') &&
-  (f.base === undefined || isInt(f.base)) &&
+  (f.base === undefined || isNonNegNum(f.base)) &&
   (f.mode === undefined || isMode(f.mode)) &&
   (f.tiers === undefined ||
     (Array.isArray(f.tiers) && isVArray(f.tiers, isFeatureTier))) &&
@@ -176,8 +176,8 @@ export const validateFeatureDefinition: (f: any) => void = (
   if (f.title !== undefined && typeof f.title !== 'string') {
     throw 'title not a string'
   }
-  if (f.base !== undefined && !isInt(f.base)) {
-    throw 'invalid base, must be integer'
+  if (f.base !== undefined && !isNonNegNum(f.base)) {
+    throw 'invalid base, must be non-negative number'
   }
   if (f.mode !== undefined && !isMode(f.mode)) {
     throw 'invalid mode'
@@ -222,14 +222,15 @@ export interface FeatureTier {
   base?: number
 }
 
-const isInt = (n: any): boolean => typeof n === 'number' && n === Math.floor(n)
+const isPosInt = (n: any): boolean => Number.isInteger(n) && n > 0
+const isNonNegNum = (n: any): boolean => typeof n === 'number' && isFinite(n) && n >= 0
 
 export const isFeatureTier = (t: any): t is FeatureTier =>
   !!t &&
   typeof t === 'object' &&
-  (t.upto === undefined || isInt(t.upto)) &&
-  (t.price === undefined || isInt(t.price)) &&
-  (t.base === undefined || isInt(t.base)) &&
+  (t.upto === undefined || isPosInt(t.upto)) &&
+  (t.price === undefined || isNonNegNum(t.price)) &&
+  (t.base === undefined || isNonNegNum(t.base)) &&
   hasOnly(t, 'upto', 'price', 'base')
 
 export const validateFeatureTier: (t: any) => void = (
@@ -238,14 +239,14 @@ export const validateFeatureTier: (t: any) => void = (
   if (!t || typeof t !== 'object') {
     throw 'not an object'
   }
-  if (t.upto !== undefined && !isInt(t.upto)) {
-    throw 'invalid upto, must be integer'
+  if (t.upto !== undefined && !isPosInt(t.upto)) {
+    throw 'invalid upto, must be integer greater than 0'
   }
-  if (t.price !== undefined && !isInt(t.price)) {
-    throw 'invalid price, must be integer'
+  if (t.price !== undefined && !isNonNegNum(t.price)) {
+    throw 'invalid price, must be non-negative number'
   }
-  if (t.base !== undefined && !isInt(t.base)) {
-    throw 'invalid base, must be integer'
+  if (t.base !== undefined && !isNonNegNum(t.base)) {
+    throw 'invalid base, must be non-negative number'
   }
   const unexpected = unexpectedFields(t, 'base', 'price', 'upto')
   if (unexpected.length !== 0) {

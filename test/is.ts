@@ -55,15 +55,20 @@ t.test('isInterval', t => {
 t.test('isFeatureTier', t => {
   t.ok(isFeatureTier({}))
   t.ok(isFeatureTier({ base: 123 }))
+  t.ok(isFeatureTier({ base: 1.3 }))
   t.ok(isFeatureTier({ price: 1 }))
+  t.ok(isFeatureTier({ price: 1.2 }))
   t.ok(isFeatureTier({ upto: 2 }))
   t.notOk(isFeatureTier(null))
+  t.notOk(isFeatureTier(true))
   t.notOk(isFeatureTier({ base: 'hello' }))
-  t.notOk(isFeatureTier({ base: 1.2 }))
+  t.notOk(isFeatureTier({ base: -1.2 }))
   t.notOk(isFeatureTier({ price: 'hello' }))
-  t.notOk(isFeatureTier({ price: 1.2 }))
+  t.notOk(isFeatureTier({ price: -1.2 }))
   t.notOk(isFeatureTier({ upto: 'hello' }))
   t.notOk(isFeatureTier({ upto: 1.2 }))
+  t.notOk(isFeatureTier({ upto: 0 }))
+  t.notOk(isFeatureTier({ upto: -1 }))
   t.notOk(isFeatureTier({ other: 'thing' }))
   t.end()
 })
@@ -72,15 +77,21 @@ t.test('validateFeatureTier', t => {
   const cases = [
     {},
     { base: 123 },
+    { base: 1.3 },
     { price: 1 },
-    { upto: 2 },
+    { price: 1.2 },
+    { price: -1.2 },
+    { upto: -2 },
+    { upto: 0 },
     null,
+    true,
     { base: 'hello' },
     { base: 1.2 },
     { price: 'hello' },
     { price: 1.2 },
     { upto: 'hello' },
     { upto: 1.2 },
+    { base: -1.2 },
     { other: 'thing' },
   ]
   t.plan(cases.length)
@@ -170,6 +181,9 @@ t.test('isFeatureDefinition', t => {
       tiers: [{}],
     })
   )
+  t.notOk(isFeatureDefinition({ base: -1 }))
+  t.ok(isFeatureDefinition({ base: 1.2 }))
+  t.ok(isFeatureDefinition({ base: 0 }))
 
   // cannot have base and tiers together
   t.notOk(isFeatureDefinition({ title: 'x', base: 1, tiers: [] }))
@@ -203,6 +217,9 @@ t.test('validateFeatureDefinition', t => {
     { tiers: [] },
     { title: 'x', base: 1, aggregate: 'sum' },
     { title: { not: 'a string' }},
+    { base: 1.2 },
+    { base: -1 },
+    { base: 0 },
     {
       title: 'x',
       mode: 'graduated',
