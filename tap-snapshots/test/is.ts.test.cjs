@@ -56,7 +56,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 14`] = `
 Array [
-  "tiers[0]: invalid base, must be non-negative number",
+  "tiers[0]: invalid base, must be non-negative integer",
   Object {
     "tiers": Array [
       Object {
@@ -113,7 +113,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 19`] = `
 Array [
-  undefined,
+  "invalid base, must be non-negative integer",
   Object {
     "base": 1.2,
   },
@@ -167,7 +167,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 7`] = `
 Array [
-  undefined,
+  "invalid base, must be non-negative integer",
   Object {
     "base": 1.2,
   },
@@ -176,7 +176,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 8`] = `
 Array [
-  "invalid base, must be non-negative number",
+  "invalid base, must be non-negative integer",
   Object {
     "base": -1,
   },
@@ -201,30 +201,37 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureTier > must match snapshot 10`] = `
 Array [
-  "not an object",
-  true,
+  "invalid upto, must be integer greater than 0",
+  Object {
+    "upto": 0,
+  },
 ]
 `
 
 exports[`test/is.ts TAP validateFeatureTier > must match snapshot 11`] = `
 Array [
-  "invalid base, must be non-negative number",
+  "not an object",
+  null,
+]
+`
+
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 12`] = `
+Array [
+  "not an object",
+  true,
+]
+`
+
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 13`] = `
+Array [
+  "invalid base, must be non-negative integer",
   Object {
     "base": "hello",
   },
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 12`] = `
-Array [
-  undefined,
-  Object {
-    "base": 1.2,
-  },
-]
-`
-
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 13`] = `
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 14`] = `
 Array [
   "invalid price, must be non-negative number",
   Object {
@@ -233,7 +240,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 14`] = `
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 15`] = `
 Array [
   undefined,
   Object {
@@ -242,7 +249,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 15`] = `
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 16`] = `
 Array [
   "invalid upto, must be integer greater than 0",
   Object {
@@ -251,7 +258,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 16`] = `
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 17`] = `
 Array [
   "invalid upto, must be integer greater than 0",
   Object {
@@ -260,16 +267,16 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 17`] = `
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 18`] = `
 Array [
-  "invalid base, must be non-negative number",
+  "invalid base, must be non-negative integer",
   Object {
     "base": -1.2,
   },
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 18`] = `
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 19`] = `
 Array [
   "unexpected field(s): other",
   Object {
@@ -289,7 +296,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureTier > must match snapshot 3`] = `
 Array [
-  undefined,
+  "invalid base, must be non-negative integer",
   Object {
     "base": 1.3,
   },
@@ -298,9 +305,9 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureTier > must match snapshot 4`] = `
 Array [
-  undefined,
+  "invalid base, must be non-negative integer",
   Object {
-    "price": 1,
+    "base": -1,
   },
 ]
 `
@@ -309,12 +316,30 @@ exports[`test/is.ts TAP validateFeatureTier > must match snapshot 5`] = `
 Array [
   undefined,
   Object {
-    "price": 1.2,
+    "base": 0,
   },
 ]
 `
 
 exports[`test/is.ts TAP validateFeatureTier > must match snapshot 6`] = `
+Array [
+  undefined,
+  Object {
+    "price": 1,
+  },
+]
+`
+
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 7`] = `
+Array [
+  undefined,
+  Object {
+    "price": 1.2,
+  },
+]
+`
+
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 8`] = `
 Array [
   "invalid price, must be non-negative number",
   Object {
@@ -323,28 +348,12 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 7`] = `
+exports[`test/is.ts TAP validateFeatureTier > must match snapshot 9`] = `
 Array [
   "invalid upto, must be integer greater than 0",
   Object {
     "upto": -2,
   },
-]
-`
-
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 8`] = `
-Array [
-  "invalid upto, must be integer greater than 0",
-  Object {
-    "upto": 0,
-  },
-]
-`
-
-exports[`test/is.ts TAP validateFeatureTier > must match snapshot 9`] = `
-Array [
-  "not an object",
-  null,
 ]
 `
 
