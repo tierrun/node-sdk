@@ -298,7 +298,10 @@ interface CurrentPhaseResponse {
 export interface Phase {
   effective?: Date
   features: Features[]
+  trial?: boolean
 }
+
+export interface CancelPhase {}
 
 const isDate = (d: any): d is Date =>
   d && typeof d === 'object' && d instanceof Date
@@ -307,13 +310,41 @@ export const isPhase = (p: any): p is Phase =>
   p &&
   typeof p === 'object' &&
   (p.effective === undefined || isDate(p.effective)) &&
+  (p.trial === undefined || typeof p.trial === 'boolean') &&
   Array.isArray(p.features) &&
   !p.features.some((f: any) => !isFeatures(f))
 
-export interface SubscribeRequest {
+export interface CheckoutParams {
+  success_url?: string
+  cancel_url?: string
+}
+
+export interface ScheduleRequest {
   org: OrgName
-  phases?: Phase[]
+  phases?: Phase[] | [CancelPhase]
   info?: OrgInfo
+  checkout?: CheckoutParams
+}
+
+/**
+ * @deprecated alias for ScheduleRequest
+ */
+export type SubscribeRequest = ScheduleRequest
+
+export interface ScheduleResponse {
+  checkout_url?: string
+}
+
+export interface SubscribeOptions {
+  effective?: Date
+  info?: OrgInfo
+  trialDays?: number
+  checkout?: CheckoutParams
+}
+
+export interface ScheduleOptions {
+  info?: OrgInfo
+  checkout?: CheckoutParams
 }
 
 export interface PhasesResponse {
@@ -529,37 +560,58 @@ export class Tier {
   public async subscribe(
     org: OrgName,
     features: Features | Features[],
-    effective?: Date,
-    info?: OrgInfo
+    { effective, info, trialDays, checkout }: SubscribeOptions = {}
   ): Promise<{}> {
-    // deprecated overloading of subscribe() as schedule()
-    if (
-      Array.isArray(features) &&
-      !features.some(f => !isPhase(f)) &&
-      effective === undefined &&
-      info === undefined
-    ) {
-      const msg = `Using phase objects with subscribe() is deprecated, please use tier.schedule() for this use case.`
-      process.emitWarning(msg, 'DeprecationWarning')
-      return await this.schedule(org, features as unknown as Phase[])
-    }
-
     const phases: Phase[] = !Array.isArray(features)
       ? [{ features: [features], effective }]
       : features.length
       ? [{ features, effective }]
       : []
-    return await this.schedule(org, phases, info)
+
+    if (trialDays && (typeof trialDays !== 'number' || trialDays <= 0)) {
+      throw new TypeError('trialDays must be number >0 if specified')
+    }
+    if (trialDays && phases.length) {
+      const real = phases[0]
+      /* c8 ignore start */
+      const effective = real.effective || new Date()
+      /* c8 ignore stop */
+      real.effective = new Date(
+        effective.getTime() + 1000 * 60 * 60 * 24 * trialDays
+      )
+      phases.unshift({ ...real, trial: true, effective })
+    }
+
+    return await this.schedule(org, phases, { info, checkout })
   }
 
-  public async schedule(org: OrgName, phases?: Phase[], info?: OrgInfo) {
-    const sr: SubscribeRequest = { org, phases, info }
-    return await this.apiPost<SubscribeRequest>('/v1/subscribe', sr)
+  public async cancel(org: OrgName) {
+    const cp: CancelPhase = {}
+    const sr: ScheduleRequest = { org, phases: [cp] }
+    return await this.apiPost<ScheduleRequest, ScheduleResponse>(
+      '/v1/subscribe',
+      sr
+    )
+  }
+
+  public async schedule(
+    org: OrgName,
+    phases?: Phase[],
+    { info, checkout }: ScheduleOptions = {}
+  ) {
+    const sr: ScheduleRequest = { org, phases, info, checkout }
+    return await this.apiPost<ScheduleRequest, ScheduleResponse>(
+      '/v1/subscribe',
+      sr
+    )
   }
 
   public async updateOrg(org: OrgName, info: OrgInfo) {
-    const sr: SubscribeRequest = { org, info }
-    return await this.apiPost<SubscribeRequest>('/v1/subscribe', sr)
+    const sr: ScheduleRequest = { org, info }
+    return await this.apiPost<ScheduleRequest, ScheduleResponse>(
+      '/v1/subscribe',
+      sr
+    )
   }
 
   public async whois(org: OrgName): Promise<WhoIsResponse> {

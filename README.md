@@ -109,10 +109,9 @@ This Error subclass contains the following fields:
 
 ## API METHODS
 
-### `subscribe(org, plan, [effective, [info]])`
+### `subscribe(org, plan, { info, trialDays, checkout })`
 
-Subscribe an org to the specified plan. If no effective date is
-provided, then the plan is effective immediately.
+Subscribe an org to the specified plan effective immediately.
 
 Plan may be either a versioned plan name, or an array of
 versioned plan names.
@@ -123,21 +122,42 @@ immediately.
 If `info` is provided, it updates the org with info in the same
 way as calling `updateOrg(org, info)`.
 
-### `schedule(org, phases, [info])`
+If `trialDays` is a number greater than 0, then a trial phase
+will be prepended with the same features, and the effective date
+will on the non-trial phase will be delayed until the end of the
+trial period.
+
+**Experimental**: If `checkout` is set to an object with
+`success_url` and `cancel_url` strings, then the response will
+contain a `checkout_url`, and the subscription will not be
+created until the user completes the steps at the provided URL.
+This API is experimental, and may change in a future update.
+
+### `schedule(org, phases, { info, checkout })`
 
 Create a subscription schedule phase for each of the sets of
 plans specified in the `phases` array.
 
 Each item in `phases` must be an object containing:
 
-- `features` Array of plan names
-- `effective` Optional effective date
+- `features` Array of versioned plan names
+- `effective` Optional effective date. Note that the first phase
+  in the list MUST have an effective date of right now (which is
+  the default).
+- `trial` Optional boolean indicating whether this is a trial or
+  an actual billed phase, default `false`
 
 If no effective date is provided, then the phase takes effect
 immediately.
 
 If `info` is provided, it updates the org with info in the same
 way as calling `updateOrg(org, info)`.
+
+**Experimental**: If `checkout` is set to an object with
+`success_url` and `cancel_url` strings, then the response will
+contain a `checkout_url`, and the subscription will not be
+created until the user completes the steps at the provided URL.
+This API is experimental, and may change in a future update.
 
 ### `updateOrg(org, info)`
 
@@ -154,6 +174,11 @@ Update the specified org with the supplied information.
 Note that any string fields that are missing will result in that
 data being removed from the org's Customer record in Stripe, as
 if `''` was specified.
+
+### `cancel(org)`
+
+Immediately cancels all current and pending subscriptions for the
+specified org.
 
 ### `limits(org)`
 

@@ -1,5 +1,14 @@
 # change log
 
+## 4.0
+
+- Move growing parameter lists into `SubscribeOptions` and
+  `ScheduleOptions` object params.
+- Add support for `trialDays` option to `tier.subscribe()`
+- Add `tier.cancel()` method
+- Add experimental support for `checkout` option to
+  `tier.subscribe()` and `tier.schedule()`
+
 ## 3.0
 
 - Add `tier.push()` method

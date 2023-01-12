@@ -42,6 +42,7 @@ t.test('type checks', async t => {
   t.equal(Tier.isOrgName('org:foo'), true)
   t.equal(Tier.isOrgName('foo'), false)
   t.equal(Tier.isPhase({}), false)
+  t.equal(Tier.isPhase({ trial: 123 }), false)
   t.equal(Tier.isFeatures('plan:ok@1'), true)
   t.equal(Tier.isFeatures('feature:yup@plan:ok@1'), true)
   t.equal(Tier.isFeatures('feature:nope'), false)
@@ -302,25 +303,26 @@ t.test('subscribe', t => {
         },
       ],
     },
-    {
-      org: 'org:o',
-      phases: [
-        {
-          effective: '2022-10-24T21:26:24.438Z',
-          features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
-        },
-        {
-          effective: '2023-10-24T21:26:24.438Z',
-          features: ['feature:foo@plan:enterprise@1', 'plan:enterprise@2'],
-        },
-      ],
-    },
     { org: 'org:o', phases: [{ features: ['plan:basic@0'] }] },
     {
       org: 'org:o',
       phases: [
         {
           effective: '2022-10-24T21:26:24.438Z',
+          features: ['plan:basic@0', 'feature:f@plan:p@0'],
+        },
+      ],
+    },
+    {
+      org: 'org:o',
+      phases: [
+        {
+          effective: '2022-10-24T21:26:24.438Z',
+          features: ['plan:basic@0', 'feature:f@plan:p@0'],
+          trial: true,
+        },
+        {
+          effective: '2022-10-25T21:26:24.438Z',
           features: ['plan:basic@0', 'feature:f@plan:p@0'],
         },
       ],
@@ -349,43 +351,36 @@ t.test('subscribe', t => {
 
   server.listen(port, async () => {
     t.same(
-      await Tier.subscribe('org:o', [
-        //@ts-ignore
-        {
-          features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
-        },
-      ]),
-      { ok: true }
-    )
-    t.same(
-      await Tier.subscribe('org:o', [
-        //@ts-ignore
-        {
-          effective: new Date('2022-10-24T21:26:24.438Z'),
-          features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
-        },
-
-        //@ts-ignore
-        {
-          effective: new Date('2023-10-24T21:26:24.438Z'),
-          features: ['feature:foo@plan:enterprise@1', 'plan:enterprise@2'],
-        },
-      ]),
+      await Tier.subscribe('org:o', ['feature:foo@plan:bar@1', 'plan:pro@2']),
       { ok: true }
     )
 
     t.same(await Tier.subscribe('org:o', 'plan:basic@0'), { ok: true })
 
     t.same(
-      await Tier.subscribe(
-        'org:o',
-        ['plan:basic@0', 'feature:f@plan:p@0'],
-        new Date('2022-10-24T21:26:24.438Z')
-      ),
+      await Tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
+        effective: new Date('2022-10-24T21:26:24.438Z'),
+      }),
       { ok: true }
     )
 
-    t.same(await Tier.subscribe('org:o', [], undefined, orgInfo), { ok: true })
+    t.same(
+      await Tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
+        effective: new Date('2022-10-24T21:26:24.438Z'),
+        trialDays: 1,
+      }),
+      { ok: true }
+    )
+
+    t.same(await Tier.subscribe('org:o', [], { info: orgInfo }), { ok: true })
+
+    await t.rejects(
+      Tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
+        effective: new Date('2022-10-24T21:26:24.438Z'),
+        trialDays: -1,
+      }),
+      { message: 'trialDays must be number >0 if specified' }
+    )
 
     await t.rejects(
       Tier.subscribe(
@@ -400,16 +395,37 @@ t.test('subscribe', t => {
       )
     )
 
-    t.same(WARNINGS, [
-      [
-        'Using phase objects with subscribe() is deprecated, please use tier.schedule() for this use case.',
-        'DeprecationWarning',
-      ],
-      [
-        'Using phase objects with subscribe() is deprecated, please use tier.schedule() for this use case.',
-        'DeprecationWarning',
-      ],
-    ])
+    t.same(WARNINGS, [])
+
+    t.end()
+  })
+})
+
+t.test('cancel', t => {
+  const expects = [
+    {
+      org: 'org:o',
+      phases: [{}],
+    },
+  ]
+
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    t.equal(req.method, 'POST')
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      t.same(body, expects.shift())
+      res.end(JSON.stringify({ ok: true }))
+      if (!expects.length) {
+        server.close()
+      }
+    })
+  })
+
+  server.listen(port, async () => {
+    t.same(await Tier.cancel('org:o'), { ok: true })
 
     t.end()
   })

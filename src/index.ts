@@ -17,6 +17,9 @@ import type {
   OrgName,
   Phase,
   PushResponse,
+  ScheduleOptions,
+  ScheduleResponse,
+  SubscribeOptions,
   Usage,
   WhoAmIResponse,
   WhoIsResponse,
@@ -163,23 +166,32 @@ export async function report(
 export async function subscribe(
   org: OrgName,
   features: Features | Features[],
-  effective?: Date,
-  info?: OrgInfo
-): Promise<{}> {
+  { effective, info, trialDays, checkout }: SubscribeOptions = {}
+): Promise<ScheduleResponse> {
   const tier = await getClient()
-  return await tier.subscribe(org, features, effective, info)
+  return await tier.subscribe(org, features, {
+    effective,
+    info,
+    trialDays,
+    checkout,
+  })
+}
+
+export async function cancel(org: OrgName): Promise<ScheduleResponse> {
+  const tier = await getClient()
+  return await tier.cancel(org)
 }
 
 export async function schedule(
   org: OrgName,
   phases?: Phase[],
-  info?: OrgInfo
-): Promise<{}> {
+  { info, checkout }: ScheduleOptions = {}
+): Promise<ScheduleResponse> {
   const tier = await getClient()
-  return await tier.schedule(org, phases, info)
+  return await tier.schedule(org, phases, { info, checkout })
 }
 
-export async function updateOrg(org: OrgName, info: OrgInfo): Promise<{}> {
+export async function updateOrg(org: OrgName, info: OrgInfo): Promise<ScheduleResponse> {
   const tier = await getClient()
   return await tier.updateOrg(org, info)
 }
@@ -220,10 +232,10 @@ import {
   isTierError,
   isVersionedFeatureName,
   Tier,
-  validatePlan,
-  validateModel,
-  validateFeatureTier,
   validateFeatureDefinition,
+  validateFeatureTier,
+  validateModel,
+  validatePlan,
 } from './client.js'
 
 export * from './client.js'
@@ -256,6 +268,7 @@ const TIER = {
   report,
   subscribe,
   schedule,
+  cancel,
   updateOrg,
   whois,
   lookupOrg,
