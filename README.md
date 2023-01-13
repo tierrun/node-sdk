@@ -141,15 +141,16 @@ plans specified in the `phases` array.
 
 Each item in `phases` must be an object containing:
 
-- `features` Array of versioned plan names
-- `effective` Optional effective date. Note that the first phase
-  in the list MUST have an effective date of right now (which is
-  the default).
+- `features` Array of versioned plan names (for example,
+  `plan:bar@1`), or "feature plan" names (for example,
+  `feature:foo@plan:bar@1`)
+- `effective` Optional effective date.
 - `trial` Optional boolean indicating whether this is a trial or
   an actual billed phase, default `false`
 
 If no effective date is provided, then the phase takes effect
-immediately.
+immediately. Note that the first phase in the list MUST NOT
+have an effective date, and start immediately.
 
 If `info` is provided, it updates the org with info in the same
 way as calling `updateOrg(org, info)`.
