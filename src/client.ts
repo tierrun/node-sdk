@@ -610,10 +610,13 @@ export class Tier {
       ? [{ features, effective }]
       : []
 
-    if (trialDays && (typeof trialDays !== 'number' || trialDays <= 0)) {
-      throw new TypeError('trialDays must be number >0 if specified')
-    }
-    if (trialDays && phases.length) {
+    if (trialDays !== undefined) {
+      if (typeof trialDays !== 'number' || trialDays <= 0) {
+        throw new TypeError('trialDays must be number >0 if specified')
+      }
+      if (!phases.length) {
+        throw new TypeError('trialDays may not be set without a subscription')
+      }
       const real = phases[0]
       /* c8 ignore start */
       const effective = real.effective || new Date()

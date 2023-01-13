@@ -381,6 +381,13 @@ t.test('subscribe', t => {
     )
 
     await t.rejects(
+      Tier.subscribe('org:o', [], {
+        trialDays: 1,
+      }),
+      { message: 'trialDays may not be set without a subscription' }
+    )
+
+    await t.rejects(
       Tier.subscribe(
         'org:o',
         [
