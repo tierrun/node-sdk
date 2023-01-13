@@ -19,7 +19,7 @@
   "description": "SDK for using https://tier.run in Node.js applications",
   "repository": "https://github.com/tierrun/node-sdk",
   "author": "Isaac Z. Schlueter <i@izs.me> (https://izs.me)",
-  "license": "ISC",
+  "license": "BSD-3-Clause",
   "scripts": {
     "prepare": "tsc -p tsconfig-cjs.json && tsc -p tsconfig-esm.json && bash fixup.sh",
     "format": "prettier --write . --loglevel warn",
