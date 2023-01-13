@@ -418,9 +418,6 @@ export class Answer {
   ok: boolean
   feature: FeatureName
   org: OrgName
-  used: number
-  limit: number
-  remaining: number
   client: Tier
   err?: TierError
 
@@ -435,14 +432,8 @@ export class Answer {
     this.org = org
     this.feature = feature
     if (usage && !err) {
-      this.used = usage.used
-      this.limit = usage.limit
-      this.remaining = usage.limit - usage.used
-      this.ok = this.used < this.limit
+      this.ok = usage.used < usage.limit
     } else {
-      this.limit = 0
-      this.used = 0
-      this.remaining = 0
       this.ok = true
       this.err = err
     }
