@@ -234,8 +234,7 @@ feature that were consumed.
 
 Options object may contain the following fields:
 
-- `at` Date object indicating when the
-  usage took place.
+- `at` Date object indicating when the usage took place.
 - `clobber` boolean indicating that the usage amount should
   override any previously reported usage of the feature for the
   current subscription phase.
@@ -419,11 +418,11 @@ remaining.
 `TierError` is a subclass of `Error` which is raised whenever
 Tier encounters a problem fetching data.
 
-* `message`: the `message` field from the sidear, if present, or
+- `message`: the `message` field from the sidear, if present, or
   `"Tier request failed"`
-* `path`: the path on the sidecar API that was requested
-* `requestData`: the data that was sent to the sidecar
-* `status`: the HTTP response status code from the sidecar, if a
+- `path`: the path on the sidecar API that was requested
+- `requestData`: the data that was sent to the sidecar
+- `status`: the HTTP response status code from the sidecar, if a
   response was returned
-* `code`: response error code returned by the sidecar, if present
-* `responseData`: the raw HTTP body sent by the sidecar
+- `code`: response error code returned by the sidecar, if present
+- `responseData`: the raw HTTP body sent by the sidecar
