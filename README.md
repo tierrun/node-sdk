@@ -127,11 +127,12 @@ will be prepended with the same features, and the effective date
 will on the non-trial phase will be delayed until the end of the
 trial period.
 
-**Experimental**: If `checkout` is set to an object with
-`success_url` and `cancel_url` strings, then the response will
-contain a `checkout_url`, and the subscription will not be
-created until the user completes the steps at the provided URL.
-This API is experimental, and may change in a future update.
+**Experimental**: If `checkout` is set to an object with a
+`success_url` string and optionally a `cancel_url` string, then
+the response will contain a `checkout_url`, and the subscription
+will not be created until the user completes the steps at the
+provided URL. **This API is experimental, and may change in a
+future update.**
 
 ### `schedule(org, phases, { info, checkout })`
 
@@ -153,11 +154,13 @@ immediately.
 If `info` is provided, it updates the org with info in the same
 way as calling `updateOrg(org, info)`.
 
-**Experimental**: If `checkout` is set to an object with
-`success_url` and `cancel_url` strings, then the response will
-contain a `checkout_url`, and the subscription will not be
-created until the user completes the steps at the provided URL.
-This API is experimental, and may change in a future update.
+**Experimental**: If `checkout` is set to an object with a
+`success_url` string and optionally a `cancel_url` string, then
+the response will contain a `checkout_url`, and the subscription
+will not be created until the user completes the steps at the
+provided URL. **This API is experimental, and may change in a
+future update.**
+
 
 ### `updateOrg(org, info)`
 
