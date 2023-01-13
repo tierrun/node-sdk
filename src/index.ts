@@ -18,10 +18,10 @@ import type {
   OrgName,
   Phase,
   PushResponse,
-  ReportOptions,
-  ScheduleOptions,
+  ReportParams,
+  ScheduleParams,
   ScheduleResponse,
-  SubscribeOptions,
+  SubscribeParams,
   Usage,
   WhoAmIResponse,
   WhoIsResponse,
@@ -158,7 +158,7 @@ export async function report(
   org: OrgName,
   feature: FeatureName,
   n: number = 1,
-  options?: ReportOptions
+  options?: ReportParams
 ): Promise<{}> {
   const tier = await getClient()
   return await tier.report(org, feature, n, options)
@@ -172,7 +172,7 @@ export async function can(org: OrgName, feature: FeatureName): Promise<Answer> {
 export async function subscribe(
   org: OrgName,
   features: Features | Features[],
-  { effective, info, trialDays, checkout }: SubscribeOptions = {}
+  { effective, info, trialDays, checkout }: SubscribeParams = {}
 ): Promise<ScheduleResponse> {
   const tier = await getClient()
   return await tier.subscribe(org, features, {
@@ -191,7 +191,7 @@ export async function cancel(org: OrgName): Promise<ScheduleResponse> {
 export async function schedule(
   org: OrgName,
   phases?: Phase[],
-  { info, checkout }: ScheduleOptions = {}
+  { info, checkout }: ScheduleParams = {}
 ): Promise<ScheduleResponse> {
   const tier = await getClient()
   return await tier.schedule(org, phases, { info, checkout })

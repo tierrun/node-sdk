@@ -335,14 +335,14 @@ export interface ScheduleResponse {
   checkout_url?: string
 }
 
-export interface SubscribeOptions {
+export interface SubscribeParams {
   effective?: Date
   info?: OrgInfo
   trialDays?: number
   checkout?: CheckoutParams
 }
 
-export interface ScheduleOptions {
+export interface ScheduleParams {
   info?: OrgInfo
   checkout?: CheckoutParams
 }
@@ -352,7 +352,7 @@ export interface PhasesResponse {
   phases: Phase[]
 }
 
-export interface ReportOptions {
+export interface ReportParams {
   at?: Date
   clobber?: boolean
 }
@@ -439,7 +439,7 @@ export class Answer {
     }
   }
 
-  async report(n: number = 1, options?: ReportOptions) {
+  async report(n: number = 1, options?: ReportParams) {
     return this.client.report(this.org, this.feature, n, options)
   }
 }
@@ -576,7 +576,7 @@ export class Tier {
     org: OrgName,
     feature: FeatureName,
     n: number = 1,
-    { at, clobber }: ReportOptions = {}
+    { at, clobber }: ReportParams = {}
   ): Promise<{}> {
     const req: ReportRequest = {
       org,
@@ -593,7 +593,7 @@ export class Tier {
   public async subscribe(
     org: OrgName,
     features: Features | Features[],
-    { effective, info, trialDays, checkout }: SubscribeOptions = {}
+    { effective, info, trialDays, checkout }: SubscribeParams = {}
   ): Promise<{}> {
     const phases: Phase[] = !Array.isArray(features)
       ? [{ features: [features], effective }]
@@ -633,7 +633,7 @@ export class Tier {
   public async schedule(
     org: OrgName,
     phases?: Phase[],
-    { info, checkout }: ScheduleOptions = {}
+    { info, checkout }: ScheduleParams = {}
   ) {
     const sr: ScheduleRequest = { org, phases, info, checkout }
     return await this.apiPost<ScheduleRequest, ScheduleResponse>(
