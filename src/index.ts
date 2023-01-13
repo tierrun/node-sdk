@@ -7,6 +7,7 @@
 import { ChildProcess, spawn } from 'child_process'
 
 import type {
+  Answer,
   CurrentPhase,
   FeatureName,
   Features,
@@ -17,6 +18,7 @@ import type {
   OrgName,
   Phase,
   PushResponse,
+  ReportOptions,
   ScheduleOptions,
   ScheduleResponse,
   SubscribeOptions,
@@ -139,28 +141,32 @@ export async function pullLatest(): Promise<Model> {
   return tier.pullLatest()
 }
 
-export async function limits(org: OrgName): Promise<Limits> {
+export async function lookupLimits(org: OrgName): Promise<Limits> {
   const tier = await getClient()
-  return tier.limits(org)
+  return tier.lookupLimits(org)
 }
 
-export async function limit(
+export async function lookupLimit(
   org: OrgName,
   feature: FeatureName
 ): Promise<Usage> {
   const tier = await getClient()
-  return tier.limit(org, feature)
+  return tier.lookupLimit(org, feature)
 }
 
 export async function report(
   org: OrgName,
   feature: FeatureName,
   n: number = 1,
-  at?: Date,
-  clobber?: boolean
+  options?: ReportOptions
 ): Promise<{}> {
   const tier = await getClient()
-  return tier.report(org, feature, n, at, clobber)
+  return await tier.report(org, feature, n, options)
+}
+
+export async function can(org: OrgName, feature: FeatureName): Promise<Answer> {
+  const tier = await getClient()
+  return tier.can(org, feature)
 }
 
 export async function subscribe(
@@ -191,7 +197,10 @@ export async function schedule(
   return await tier.schedule(org, phases, { info, checkout })
 }
 
-export async function updateOrg(org: OrgName, info: OrgInfo): Promise<ScheduleResponse> {
+export async function updateOrg(
+  org: OrgName,
+  info: OrgInfo
+): Promise<ScheduleResponse> {
   const tier = await getClient()
   return await tier.updateOrg(org, info)
 }
@@ -211,7 +220,7 @@ export async function whoami(): Promise<WhoAmIResponse> {
   return tier.whoami()
 }
 
-export async function phase(org: OrgName): Promise<CurrentPhase> {
+export async function lookupPhase(org: OrgName): Promise<CurrentPhase> {
   const tier = await getClient()
   return tier.phase(org)
 }
@@ -240,6 +249,30 @@ import {
 
 export * from './client.js'
 
+/* c8 ignore start */
+/**
+ * @deprecated alias for lookupLimits
+ */
+export async function limits(org: OrgName): Promise<Limits> {
+  return lookupLimits(org)
+}
+/**
+ * @deprecated alias for lookupLimit
+ */
+export async function limit(
+  org: OrgName,
+  feature: FeatureName
+): Promise<Usage> {
+  return lookupLimit(org, feature)
+}
+/**
+ * @deprecated alias for lookupPhase
+ */
+export async function phase(org: OrgName): Promise<CurrentPhase> {
+  return lookupPhase(org)
+}
+/* c8 ignore stop */
+
 const TIER = {
   isErrorResponse,
   isFeatureName,
@@ -259,13 +292,14 @@ const TIER = {
   init,
   exitHandler,
 
-  limit,
-  limits,
-  phase,
+  lookupLimit,
+  lookupLimits,
+  lookupPhase,
   pull,
   pullLatest,
   push,
   report,
+  can,
   subscribe,
   schedule,
   cancel,
@@ -273,6 +307,10 @@ const TIER = {
   whois,
   lookupOrg,
   whoami,
+
+  limit,
+  limits,
+  phase,
 }
 
 export default TIER

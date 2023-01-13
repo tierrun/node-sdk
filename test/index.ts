@@ -1,6 +1,6 @@
 import { createServer } from 'http'
 import t from 'tap'
-import Tier, { OrgInfo, PushResponse } from '../'
+import Tier, { OrgInfo, PushResponse, isTierError } from '../'
 const port = 10000 + (process.pid % 10000)
 
 t.match(Tier, {
@@ -77,7 +77,7 @@ t.test('type checks', async t => {
   )
 })
 
-t.test('limits', t => {
+t.test('lookupLimits', t => {
   const server = createServer((req, res) => {
     res.setHeader('connection', 'close')
     server.close()
@@ -86,12 +86,12 @@ t.test('limits', t => {
     res.end(JSON.stringify({ ok: true }))
   })
   server.listen(port, async () => {
-    t.same(await Tier.limits('org:o'), { ok: true })
+    t.same(await Tier.lookupLimits('org:o'), { ok: true })
     t.end()
   })
 })
 
-t.test('limit', t => {
+t.test('lookupLimit', t => {
   let reqs = 0
   const server = createServer((req, res) => {
     res.setHeader('connection', 'close')
@@ -119,12 +119,12 @@ t.test('limit', t => {
     )
   })
   server.listen(port, async () => {
-    t.same(await Tier.limit('org:o', 'feature:storage'), {
+    t.same(await Tier.lookupLimit('org:o', 'feature:storage'), {
       feature: 'feature:storage',
       used: 341,
       limit: 10000,
     })
-    t.same(await Tier.limit('org:o', 'feature:other'), {
+    t.same(await Tier.lookupLimit('org:o', 'feature:other'), {
       feature: 'feature:other',
       used: 0,
       limit: 0,
@@ -175,7 +175,8 @@ t.test('pullLatest', t => {
     t.end()
   })
 })
-t.test('phase', t => {
+
+t.test('lookupPhase', t => {
   const server = createServer((req, res) => {
     res.setHeader('connection', 'close')
     server.close()
@@ -193,7 +194,7 @@ t.test('phase', t => {
     )
   })
   server.listen(port, async () => {
-    t.same(await Tier.phase('org:o'), {
+    t.same(await Tier.lookupPhase('org:o'), {
       effective: new Date('2022-10-13T16:52:11-07:00'),
       features: ['feature:storage@plan:free@1', 'feature:transfer@plan:free@1'],
       plans: ['plan:free@1'],
@@ -265,13 +266,10 @@ t.test('report', t => {
   server.listen(port, async () => {
     t.same(await Tier.report('org:o', 'feature:f'), { ok: true })
     t.same(
-      await Tier.report(
-        'org:o',
-        'feature:f',
-        10,
-        new Date('2022-10-24T21:26:24.438Z'),
-        true
-      ),
+      await Tier.report('org:o', 'feature:f', 10, {
+        at: new Date('2022-10-24T21:26:24.438Z'),
+        clobber: true,
+      }),
       { ok: true }
     )
     t.end()
@@ -744,6 +742,135 @@ t.test('lookupOrg', t => {
       stripe_id: 'cust_1234',
       email: 'x@y.com',
     })
+    t.end()
+  })
+})
+
+t.test('report', t => {
+  const expects = [
+    {
+      org: 'org:o',
+      feature: 'feature:f',
+      n: 1,
+      clobber: false,
+    },
+    {
+      org: 'org:o',
+      feature: 'feature:f',
+      at: '2022-10-24T21:26:24.438Z',
+      n: 10,
+      clobber: true,
+    },
+  ]
+
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    t.equal(req.method, 'POST')
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      t.same(body, expects.shift())
+      res.end(JSON.stringify({ ok: true }))
+      if (!expects.length) {
+        server.close()
+      }
+    })
+  })
+
+  server.listen(port, async () => {
+    t.same(await Tier.report('org:o', 'feature:f'), { ok: true })
+    t.same(
+      await Tier.report('org:o', 'feature:f', 10, {
+        at: new Date('2022-10-24T21:26:24.438Z'),
+        clobber: true,
+      }),
+      { ok: true }
+    )
+    t.end()
+  })
+})
+
+t.test('can', t => {
+  let sawGet = false
+  let sawPost = false
+  const expects = [
+    {
+      org: 'org:o',
+      feature: 'feature:can',
+      n: 1,
+      clobber: false,
+    },
+    {
+      org: 'org:o',
+      feature: 'feature:can',
+      n: 10,
+      clobber: false,
+    },
+  ]
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    if (req.method === 'GET') {
+      // looking up limits
+      sawGet = true
+
+      if (req.url === '/v1/limits?org=org%3Ao') {
+        res.end(
+          JSON.stringify({
+            org: 'org:o',
+            usage: [
+              {
+                feature: 'feature:can',
+                used: 341,
+                limit: 10000,
+              },
+              {
+                feature: 'feature:cannot',
+                used: 234213,
+                limit: 10000,
+              },
+            ],
+          })
+        )
+      } else {
+        res.statusCode = 500
+        res.end(JSON.stringify({ error: 'blorp' }))
+      }
+    } else if (req.method === 'POST') {
+      // reporting usage
+      sawPost = true
+      const chunks: Buffer[] = []
+      req.on('data', c => chunks.push(c))
+      req.on('end', () => {
+        const body = JSON.parse(Buffer.concat(chunks).toString())
+        t.match(body, expects.shift())
+        res.end(JSON.stringify({ ok: true }))
+      })
+    } else {
+      throw new Error('unexpected http method used')
+    }
+  })
+  server.listen(port, async () => {
+    const cannot = await Tier.can('org:o', 'feature:cannot')
+    t.match(cannot, { ok: false, err: undefined })
+
+    const err = await Tier.can('org:error', 'feature:nope')
+    t.match(err, {
+      ok: true,
+      err: { message: 'Tier request failed', status: 500 },
+    })
+    t.equal(isTierError(err.err), true)
+
+    const can = await Tier.can('org:o', 'feature:can')
+    t.match(can, { ok: true })
+    t.match(await can.report(), { ok: true, err: undefined })
+    t.match(await can.report(10), { ok: true, err: undefined })
+
+    t.equal(sawPost, true)
+    t.equal(sawGet, true)
+
+    server.close()
+
     t.end()
   })
 })

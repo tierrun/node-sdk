@@ -180,7 +180,7 @@ if `''` was specified.
 Immediately cancels all current and pending subscriptions for the
 specified org.
 
-### `limits(org)`
+### `lookupLimits(org)`
 
 Retrieve the usage data and limits for an org.
 
@@ -202,7 +202,7 @@ Retrieve the usage data and limits for an org.
 }
 ```
 
-### `limit(org, feature)`
+### `lookupLimit(org, feature)`
 
 Retrieve the usage and limit data for an org and single feature.
 
@@ -225,19 +225,51 @@ returned with `usage` and `limit` set to `0`.
 }
 ```
 
-### `report(org, feature, [n = 1], [at = new Date()], [clobber = false])`
+### `report(org, feature, [n = 1], [options = {}])`
 
 Report usage of a feature by an org.
 
 The optional `n` parameter indicates the number of units of the
 feature that were consumed.
 
-The optional `at` parameter is a Date object indicating when the
-usage took place.
+Options object may contain the following fields:
 
-The optional `clobber` parameter indicates that the usage should
-override any previously reported usage of the feature for the
-current subscription phase.
+- `at` Date object indicating when the
+  usage took place.
+- `clobber` boolean indicating that the usage amount should
+  override any previously reported usage of the feature for the
+  current subscription phase.
+
+### `can(org, feature)`
+
+`can` is a convenience function for checking if an org has used
+more of a feature than they are entitled to and optionally
+reporting usage post check and consumption.
+
+If reporting consumption is not required, it can be used in the
+form:
+
+```js
+const answer = await tier.can('org:acme', 'feature:convert')
+if (answer.ok) {
+  //...
+}
+```
+
+reporting usage post consumption looks like:
+
+```js
+const answer = await tier.can('org:acme', 'feature:convert')
+if (!answer.ok) {
+  return ''
+}
+answer.report().catch(er => {
+  // error occurred reporting usage, log or handle it here
+})
+
+// but don't wait to deliver the feature
+return convert(temp)
+```
 
 ### `whois(org)`
 
@@ -250,11 +282,16 @@ Retrieve the Stripe Customer ID for an org.
 }
 ```
 
+### `lookupOrg(org)`
+
+Retrieve the full org info, with `stripe_id`, along with email,
+name, description, phone, and metadata.
+
 ### `whoami()`
 
 Retrieve information about the current logged in Stripe account.
 
-### `phase(org)`
+### `lookupPhase(org)`
 
 Retrieve the current schedule phase for the org. This provides a
 list of the features and plans that the org is currently
@@ -270,14 +307,14 @@ user interface for upgrading/downgrading pricing plans.
 ```
 
 Note: This should **not** be used for checking entitlements and
-feature gating. Instead, use the `Tier.limit()` method and check
+feature gating. Instead, use the `Tier.lookupLimit()` method and check
 the limit and usage for the feature in question.
 
 For example:
 
 ```
 // Do not do this!  You will regret it!
-const phase = await Tier.phase(`org:${customerID}`)
+const phase = await Tier.lookupPhase(`org:${customerID}`)
 if (phase.plans.some(plan => plan.startsWith('plan:pro')) {
   showSpecialFeature()
 }
@@ -286,7 +323,7 @@ if (phase.plans.some(plan => plan.startsWith('plan:pro')) {
 Instead, do this:
 
 ```js
-const usage = await Tier.limit(`org:${customerID}`, 'feature:special')
+const usage = await Tier.lookupLimit(`org:${customerID}`, 'feature:special')
 if (usage.limit < usage.used) {
   showSpecialFeature()
 }
@@ -342,3 +379,37 @@ which either had errors or already existed. Note that a
 successful response from this method does not mean that _all_ of
 the features were created (since, for example, some may already
 exist), only that _some_ of them were.
+
+### Class: `Answer`
+
+`Answer` is the type of object returned by `tier.can()`.
+
+#### `answer.ok`
+
+`ok` reports if the program should proceed with a user request or
+not. To prevent total failure if `can()` needed to reach the sidecar
+and was unable to, `ok` will fail optimistically and report true.
+If the opposite is desired, clients can check `err`.
+
+#### `answer.err`
+
+Any error encountered fetching the `Usage` record for the org and
+feature.
+
+#### `answer.report([n = 1])`
+
+Report the usage in the amount specified, default `1`.
+
+#### `answer.limit`
+
+Number specifying the limit for the feature usage.
+
+#### `answer.used`
+
+Number specifying the amount of the feature that the org has
+consumed.
+
+#### `answer.remaining`
+
+Number specifying the amount of feature consumption that is
+remaining.

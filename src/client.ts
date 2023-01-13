@@ -352,6 +352,11 @@ export interface PhasesResponse {
   phases: Phase[]
 }
 
+export interface ReportOptions {
+  at?: Date
+  clobber?: boolean
+}
+
 export interface ReportRequest {
   org: OrgName
   feature: FeatureName
@@ -408,6 +413,45 @@ export const isErrorResponse = (e: any): e is ErrorResponse =>
 
 export const isTierError = (e: any): e is TierError =>
   !!e && typeof e === 'object' && e instanceof TierError
+
+export class Answer {
+  ok: boolean
+  feature: FeatureName
+  org: OrgName
+  used: number
+  limit: number
+  remaining: number
+  client: Tier
+  err?: TierError
+
+  constructor(
+    client: Tier,
+    org: OrgName,
+    feature: FeatureName,
+    usage?: Usage,
+    err?: TierError
+  ) {
+    this.client = client
+    this.org = org
+    this.feature = feature
+    if (usage && !err) {
+      this.used = usage.used
+      this.limit = usage.limit
+      this.remaining = usage.limit - usage.used
+      this.ok = this.used < this.limit
+    } else {
+      this.limit = 0
+      this.used = 0
+      this.remaining = 0
+      this.ok = true
+      this.err = err
+    }
+  }
+
+  async report(n: number = 1, options?: ReportOptions) {
+    return this.client.report(this.org, this.feature, n, options)
+  }
+}
 
 export class TierError extends Error {
   public path: string
@@ -520,11 +564,11 @@ export class Tier {
     return (await res.json()) as TRes
   }
 
-  async limits(org: OrgName): Promise<Limits> {
+  async lookupLimits(org: OrgName): Promise<Limits> {
     return await this.apiGet<Limits>('/v1/limits', { org })
   }
 
-  async limit(org: OrgName, feature: FeatureName): Promise<Usage> {
+  async lookupLimit(org: OrgName, feature: FeatureName): Promise<Usage> {
     const limits = await this.apiGet<Limits>('/v1/limits', { org })
     for (const usage of limits.usage) {
       if (
@@ -541,8 +585,7 @@ export class Tier {
     org: OrgName,
     feature: FeatureName,
     n: number = 1,
-    at?: Date,
-    clobber?: boolean
+    { at, clobber }: ReportOptions = {}
   ): Promise<{}> {
     const req: ReportRequest = {
       org,
@@ -553,7 +596,6 @@ export class Tier {
       req.at = at
     }
     req.clobber = !!clobber
-
     return await this.apiPost<ReportRequest>('/v1/report', req)
   }
 
@@ -632,7 +674,7 @@ export class Tier {
     })
   }
 
-  public async phase(org: OrgName): Promise<CurrentPhase> {
+  public async lookupPhase(org: OrgName): Promise<CurrentPhase> {
     const resp = await this.apiGet<CurrentPhaseResponse>('/v1/phase', { org })
     return {
       ...resp,
@@ -668,4 +710,40 @@ export class Tier {
   async whoami(): Promise<WhoAmIResponse> {
     return await this.apiGet<WhoAmIResponse>('/v1/whoami')
   }
+
+  async can(org: OrgName, feature: FeatureName): Promise<Answer> {
+    try {
+      const usage = await this.lookupLimit(org, feature)
+      return new Answer(this, org, feature, usage)
+    } catch (err) {
+      /* c8 ignore start */
+      // something extra broken, just fail. should be impossible.
+      if (!isTierError(err)) {
+        throw err
+      }
+      /* c8 ignore stop */
+      return new Answer(this, org, feature, undefined, err)
+    }
+  }
+
+  /* c8 ignore start */
+  /**
+   * @deprecated alias for lookupLimits
+   */
+  async limits(org: OrgName): Promise<Limits> {
+    return this.lookupLimits(org)
+  }
+  /**
+   * @deprecated alias for lookupLimit
+   */
+  async limit(org: OrgName, feature: FeatureName): Promise<Usage> {
+    return this.lookupLimit(org, feature)
+  }
+  /**
+   * @deprecated alias for lookupPhase
+   */
+  public async phase(org: OrgName): Promise<CurrentPhase> {
+    return this.lookupPhase(org)
+  }
+  /* c8 ignore stop */
 }
