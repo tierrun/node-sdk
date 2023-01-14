@@ -8,6 +8,9 @@
 - Add `tier.cancel()` method
 - Add experimental support for `checkout` option to
   `tier.subscribe()` and `tier.schedule()`
+- Consistently name option argument types as `{Thing}Params`
+  instead of `{Thing}Options`
+- Add `tier.can()` interface
 
 ## 3.0
 
