@@ -8,12 +8,24 @@
   "module": "dist/mjs/index.js",
   "exports": {
     ".": {
-      "import": "./dist/mjs/index.js",
-      "require": "./dist/cjs/index.js"
+      "import": {
+        "default": "./dist/mjs/index.js",
+        "types": "./dist/mjs/index.d.ts"
+      },
+      "require": {
+        "default": "./dist/cjs/index.js",
+        "types": "./dist/cjs/index.d.ts"
+      }
     },
     "./client": {
-      "import": "./dist/mjs/client.js",
-      "require": "./dist/cjs/client.js"
+      "import": {
+        "default": "./dist/mjs/client.js",
+        "types": "./dist/mjs/client.d.ts"
+      },
+      "require": {
+        "default": "./dist/cjs/client.js",
+        "types": "./dist/cjs/client.d.ts"
+      }
     }
   },
   "description": "SDK for using https://tier.run in Node.js applications",
