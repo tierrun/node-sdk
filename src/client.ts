@@ -53,16 +53,36 @@ const featuresToPhases = ({
 
 // just keeping the double-negative in one place, since I so often
 // type this wrong and get annoyed.
-const isVArray = (arr: any[], valTest: (v: any) => boolean) =>
-  !arr.some(v => !valTest(v))
+const isVArray = (arr: any, valTest: (v: any) => boolean) =>
+  Array.isArray(arr) && !arr.some(v => !valTest(v))
+
+const isObj = (c: any): c is { [k: string]: any } =>
+  !!c && typeof c === 'object'
+
+const optionalType = (c: any, t: string): boolean =>
+  c === undefined || typeof c === t
+
+const optionalString = (c: any): c is string | undefined =>
+  optionalType(c, 'string')
+
+const optionalKV = (
+  c: any,
+  keyTest: (k: string) => boolean,
+  valTest: (v: any) => boolean
+): boolean => c === undefined || isKV(c, keyTest, valTest)
+
+const optionalIs = (c: any, test: (c: any) => boolean) =>
+  c === undefined || test(c)
+
+const optionalIsVArray = (c: any, valTest: (v: any) => boolean) =>
+  c === undefined || isVArray(c, valTest)
 
 const isKV = (
   obj: any,
   keyTest: (k: string) => boolean,
   valTest: (v: any) => boolean
 ): boolean =>
-  !!obj &&
-  typeof obj === 'object' &&
+  isObj(obj) &&
   isVArray(Object.keys(obj), keyTest) &&
   isVArray(Object.values(obj), valTest)
 
@@ -74,7 +94,10 @@ const unexpectedFields = (
   return Object.keys(obj).filter(k => !expect.has(k))
 }
 
-const hasOnly = (obj: { [k: string]: any }, ...keys: string[]): boolean => {
+const hasOnly = (obj: any, ...keys: string[]): boolean => {
+  if (!isObj(obj)) {
+    return false
+  }
   const expect = new Set<string>(keys)
   for (const k of Object.keys(obj)) {
     if (!expect.has(k)) {
@@ -85,16 +108,13 @@ const hasOnly = (obj: { [k: string]: any }, ...keys: string[]): boolean => {
 }
 
 export const isModel = (m: any): m is Model =>
-  !!m &&
-  typeof m === 'object' &&
-  isKV(m.plans, isPlanName, isPlan) &&
-  hasOnly(m, 'plans')
+  hasOnly(m, 'plans') && isKV(m.plans, isPlanName, isPlan)
 
 export const validateModel = (m: any): asserts m is Model => {
-  if (!m || typeof m !== 'object') {
+  if (!isObj(m)) {
     throw 'not an object'
   }
-  if (!m.plans || typeof m.plans !== 'object') {
+  if (!isObj(m.plans)) {
     throw 'missing or invalid plans, must be object'
   }
   for (const [pn, plan] of Object.entries(m.plans)) {
@@ -123,28 +143,25 @@ export interface Plan {
 }
 
 const isCurrency = (c: any): c is Plan['currency'] =>
-  c === undefined ||
-  (typeof c === 'string' && c.length === 3 && c === c.toLowerCase())
+  typeof c === 'string' && c.length === 3 && c === c.toLowerCase()
 
 export const isPlan = (p: any): p is Plan =>
-  !!p &&
-  typeof p === 'object' &&
-  (p.title === undefined || typeof p.title === 'string') &&
-  (p.features === undefined ||
-    isKV(p.features, isFeatureName, isFeatureDefinition)) &&
-  isCurrency(p.currency) &&
-  (p.interval === undefined || isInterval(p.interval)) &&
-  hasOnly(p, 'title', 'currency', 'interval', 'features')
+  isObj(p) &&
+  hasOnly(p, 'title', 'currency', 'interval', 'features') &&
+  optionalString(p.title) &&
+  optionalKV(p.features, isFeatureName, isFeatureDefinition) &&
+  optionalIs(p.currency, isCurrency) &&
+  optionalIs(p.interval, isInterval)
 
 export const validatePlan: (p: any) => void = (p: any): asserts p is Plan => {
-  if (!p || typeof p !== 'object') {
+  if (!isObj(p)) {
     throw 'not an object'
   }
   if (p.title !== undefined && typeof p.title !== 'string') {
     throw 'invalid title, must be string'
   }
   if (p.features !== undefined) {
-    if (!p.features || typeof p.features !== 'object') {
+    if (!isObj(p.features)) {
       throw 'invalid features field, must be object'
     }
     for (const [fn, fdef] of Object.entries(p.features)) {
@@ -158,10 +175,10 @@ export const validatePlan: (p: any) => void = (p: any): asserts p is Plan => {
       }
     }
   }
-  if (!isCurrency(p.currency)) {
+  if (!optionalIs(p.currency, isCurrency)) {
     throw `invalid currency: ${p.currency}`
   }
-  if (p.interval !== undefined && !isInterval(p.interval)) {
+  if (!optionalIs(p.interval, isInterval)) {
     throw `invalid interval: ${p.interval}`
   }
   const unexpected = unexpectedFields(
@@ -192,35 +209,33 @@ export const isAggregate = (a: any): a is Aggregate =>
   a === 'sum' || a === 'max' || a === 'last' || a === 'perpetual'
 
 export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
-  !!f &&
-  typeof f === 'object' &&
-  (f.title === undefined || typeof f.title === 'string') &&
-  (f.base === undefined || isNonNegInt(f.base)) &&
-  (f.mode === undefined || isMode(f.mode)) &&
-  (f.tiers === undefined ||
-    (Array.isArray(f.tiers) && isVArray(f.tiers, isFeatureTier))) &&
+  hasOnly(f, 'base', 'tiers', 'mode', 'aggregate', 'title') &&
+  optionalString(f.title) &&
+  optionalIs(f.base, isNonNegInt) &&
+  optionalIs(f.mode, isMode) &&
+  optionalIsVArray(f.tiers, isFeatureTier) &&
   !(f.base !== undefined && f.tiers) &&
-  (f.aggregate === undefined || isAggregate(f.aggregate)) &&
-  hasOnly(f, 'base', 'tiers', 'mode', 'aggregate', 'title')
+  optionalIs(f.aggregate, isAggregate)
 
 export const validateFeatureDefinition: (f: any) => void = (
   f: any
 ): asserts f is FeatureDefinition => {
-  if (!f || typeof f !== 'object') {
+  if (!isObj(f)) {
     throw 'not an object'
   }
-  if (f.title !== undefined && typeof f.title !== 'string') {
+  if (!optionalString(f.title)) {
     throw 'title not a string'
   }
-  if (f.base !== undefined && !isNonNegInt(f.base)) {
+  if (!optionalIs(f.base, isNonNegInt)) {
     throw 'invalid base, must be non-negative integer'
   }
-  if (f.mode !== undefined && !isMode(f.mode)) {
+  if (!optionalIs(f.mode, isMode)) {
     throw 'invalid mode'
   }
   if (f.tiers && f.base !== undefined) {
     throw 'tiers and base cannot be set together'
   }
+  // unroll this so we can show the tier that failed
   if (f.tiers !== undefined) {
     if (!Array.isArray(f.tiers)) {
       throw 'non-array tiers field'
@@ -233,7 +248,7 @@ export const validateFeatureDefinition: (f: any) => void = (
       }
     })
   }
-  if (f.aggregate !== undefined && !isAggregate(f.aggregate)) {
+  if (!optionalIs(f.aggregate, isAggregate)) {
     throw 'invalid aggregate'
   }
   const unexpected = unexpectedFields(
@@ -264,26 +279,24 @@ const isNonNegNum = (n: any): boolean =>
   typeof n === 'number' && isFinite(n) && n >= 0
 
 export const isFeatureTier = (t: any): t is FeatureTier =>
-  !!t &&
-  typeof t === 'object' &&
-  (t.upto === undefined || isPosInt(t.upto)) &&
-  (t.price === undefined || isNonNegNum(t.price)) &&
-  (t.base === undefined || isNonNegInt(t.base)) &&
-  hasOnly(t, 'upto', 'price', 'base')
+  hasOnly(t, 'upto', 'price', 'base') &&
+  optionalIs(t.upto, isPosInt) &&
+  optionalIs(t.price, isNonNegNum) &&
+  optionalIs(t.base, isNonNegInt)
 
 export const validateFeatureTier: (t: any) => void = (
   t: any
 ): asserts t is FeatureTier => {
-  if (!t || typeof t !== 'object') {
+  if (!isObj(t)) {
     throw 'not an object'
   }
-  if (t.upto !== undefined && !isPosInt(t.upto)) {
+  if (!optionalIs(t.upto, isPosInt)) {
     throw 'invalid upto, must be integer greater than 0'
   }
-  if (t.price !== undefined && !isNonNegNum(t.price)) {
+  if (!optionalIs(t.price, isNonNegNum)) {
     throw 'invalid price, must be non-negative number'
   }
-  if (t.base !== undefined && !isNonNegInt(t.base)) {
+  if (!optionalIs(t.base, isNonNegInt)) {
     throw 'invalid base, must be non-negative integer'
   }
   const unexpected = unexpectedFields(t, 'base', 'price', 'upto')
@@ -325,6 +338,7 @@ export interface CurrentPhase {
   features: FeatureNameVersioned[]
   plans: PlanName[]
 }
+
 interface CurrentPhaseResponse {
   effective: string
   features: FeatureNameVersioned[]
@@ -339,16 +353,13 @@ export interface Phase {
 
 export interface CancelPhase {}
 
-const isDate = (d: any): d is Date =>
-  d && typeof d === 'object' && d instanceof Date
+const isDate = (d: any): d is Date => isObj(d) && d instanceof Date
 
 export const isPhase = (p: any): p is Phase =>
-  p &&
-  typeof p === 'object' &&
-  (p.effective === undefined || isDate(p.effective)) &&
-  (p.trial === undefined || typeof p.trial === 'boolean') &&
-  Array.isArray(p.features) &&
-  !p.features.some((f: any) => !isFeatures(f))
+  isObj(p) &&
+  optionalIs(p.effective, isDate) &&
+  optionalType(p.trial, 'boolean') &&
+  isVArray(p.features, isFeatures)
 
 export interface ScheduleRequest {
   org: OrgName
@@ -431,14 +442,13 @@ export interface ErrorResponse {
   message: string
 }
 export const isErrorResponse = (e: any): e is ErrorResponse =>
-  e &&
-  typeof e === 'object' &&
+  isObj(e) &&
   typeof e.status === 'number' &&
   typeof e.message === 'string' &&
   typeof e.code === 'string'
 
 export const isTierError = (e: any): e is TierError =>
-  !!e && typeof e === 'object' && e instanceof TierError
+  isObj(e) && e instanceof TierError
 
 export class Answer {
   ok: boolean

@@ -2,7 +2,6 @@
 // can do the platform-specific optional dep trick.
 
 // TODO: more type checking on inputs and return values
-// TODO: handle tier errors in a nice consistent way
 
 import { ChildProcess, spawn } from 'child_process'
 
