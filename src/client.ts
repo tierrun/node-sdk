@@ -16,15 +16,16 @@ export interface Model {
 }
 
 // turn (features, {trialDays, effective}) into a set of phases
-const featuresToPhases = ({
-  features,
-  trialDays,
-  effective,
-}: {
-  features: Features | Features[]
-  trialDays?: number
-  effective?: Date
-}): Phase[] => {
+const featuresToPhases = (
+  features: Features | Features[],
+  {
+    trialDays,
+    effective,
+  }: {
+    trialDays?: number
+    effective?: Date
+  }
+): Phase[] => {
   const phases: Phase[] = !Array.isArray(features)
     ? [{ features: [features], effective }]
     : features.length
@@ -39,12 +40,10 @@ const featuresToPhases = ({
       throw new TypeError('trialDays may not be set without a subscription')
     }
     const real = phases[0]
-    /* c8 ignore start */
-    const effective = real.effective || new Date()
-    /* c8 ignore stop */
-    real.effective = new Date(
-      effective.getTime() + 1000 * 60 * 60 * 24 * trialDays
-    )
+    const effective = real.effective
+    const start = (effective || new Date()).getTime()
+    const offset = 1000 * 60 * 60 * 24 * trialDays
+    real.effective = new Date(start + offset)
     phases.unshift({ ...real, trial: true, effective })
   }
 
@@ -361,6 +360,26 @@ export const isPhase = (p: any): p is Phase =>
   optionalType(p.trial, 'boolean') &&
   isVArray(p.features, isFeatures)
 
+export interface CheckoutParams {
+  cancelUrl?: string
+  features?: Features | Features[]
+  trialDays?: number
+}
+
+// change when /v1/checkout api lands
+export interface CheckoutRequest {
+  org: OrgName
+  phases?: Phase[]
+  checkout: {
+    success_url: string
+    cancel_url?: string
+  }
+}
+
+export interface CheckoutResponse {
+  checkout_url: string
+}
+
 export interface ScheduleRequest {
   org: OrgName
   phases?: Phase[] | [CancelPhase]
@@ -626,6 +645,30 @@ export class Tier {
     return await this.apiPost<ReportRequest>('/v1/report', req)
   }
 
+  // XXX: this method will change when /v1/checkout arrives
+  // For now, it's basically copypasta from tier.subscribe()
+  public async checkout(
+    org: OrgName,
+    successUrl: string,
+    params: CheckoutParams = {}
+  ): Promise<CheckoutResponse> {
+    const cr: CheckoutRequest = {
+      org,
+      checkout: {
+        success_url: successUrl,
+        cancel_url: params.cancelUrl,
+      },
+    }
+    const { features, trialDays } = params
+    if (features) {
+      cr.phases = featuresToPhases(features, { trialDays })
+    }
+    return await this.apiPost<CheckoutRequest, CheckoutResponse>(
+      '/v1/subscribe',
+      cr
+    )
+  }
+
   public async subscribe(
     org: OrgName,
     features: Features | Features[],
@@ -633,7 +676,7 @@ export class Tier {
   ): Promise<ScheduleResponse> {
     return await this.schedule(
       org,
-      featuresToPhases({ features, effective, trialDays }),
+      featuresToPhases(features, { effective, trialDays }),
       { info }
     )
   }

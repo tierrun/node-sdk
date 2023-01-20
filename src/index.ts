@@ -7,6 +7,8 @@ import { ChildProcess, spawn } from 'child_process'
 
 import type {
   Answer,
+  CheckoutParams,
+  CheckoutResponse,
   CurrentPhase,
   FeatureName,
   Features,
@@ -168,6 +170,19 @@ export async function can(org: OrgName, feature: FeatureName): Promise<Answer> {
   return tier.can(org, feature)
 }
 
+export async function checkout(
+  org: OrgName,
+  successUrl: string,
+  { cancelUrl, features, trialDays }: CheckoutParams = {}
+): Promise<CheckoutResponse> {
+  const tier = await getClient()
+  return await tier.checkout(org, successUrl, {
+    cancelUrl,
+    features,
+    trialDays,
+  })
+}
+
 export async function subscribe(
   org: OrgName,
   features: Features | Features[],
@@ -301,6 +316,7 @@ const TIER = {
   subscribe,
   schedule,
   cancel,
+  checkout,
   updateOrg,
   whois,
   lookupOrg,

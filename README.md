@@ -150,6 +150,27 @@ have an effective date, and start immediately.
 If `info` is provided, it updates the org with info in the same
 way as calling `updateOrg(org, info)`.
 
+### `checkout(org, successUrl, { cancelUrl, features, trialDays })`
+
+Generate a Stripe Checkout flow, and return a `{ checkout_url }`
+object.  Redirect the user to that `checkout_url` to have them
+complete the checkout flow.  Stripe will redirect them back to
+the `successUrl` when the flow is completed successfully.
+
+Optional parameters:
+
+- `cancelUrl` if provided, then the user will be redirected to
+  the supplied url if they cancel the process.
+- `features` Either a versioned plan name (for example,
+  `plan:bar@1`), or "feature plan" name (for example
+  `feature:foo@plan:bar@1`), or an array of versioned plan names
+  and feature plan names.  If provided, then the user will be
+  subscribed to the relevant plan(s) once they complete the
+  Checkout flow.  If not provided, then the Checkout flow will
+  only gather customer information.
+- `trialDays` Number of days to put the user on a "trial plan",
+  where they are not charged for any usage.  Only allowed when
+  `features` is provided.
 
 ### `updateOrg(org, info)`
 

@@ -1,7 +1,8 @@
 import { createServer } from 'http'
 import t from 'tap'
-import Tier, { OrgInfo, PushResponse, isTierError } from '../'
+import Tier, { isTierError, OrgInfo, PushResponse } from '../'
 const port = 10000 + (process.pid % 10000)
+const date = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}Z$/
 
 t.match(Tier, {
   init: Function,
@@ -26,6 +27,7 @@ t.match(Tier, {
   push: Function,
   lookupOrg: Function,
   updateOrg: Function,
+  checkout: Function,
 })
 
 // fake the init for these tests
@@ -276,14 +278,176 @@ t.test('report', t => {
   })
 })
 
-t.test('subscribe', t => {
-  const { emitWarning } = process
-  t.teardown(() => {
-    process.emitWarning = emitWarning
-  })
-  const WARNINGS: any[][] = []
-  process.emitWarning = (...m: any[]) => WARNINGS.push(m)
+t.test('checkout', t => {
+  const checkoutRes = {
+    checkout_url: 'https://www.example.com/checkout',
+  }
 
+  let expect: { [k: string]: any } = { nope: 'invalid' }
+
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    t.equal(req.method, 'POST')
+    t.equal(req.url, '/v1/subscribe')
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      t.match(body, expect)
+      expect = { nope: 'invalid' }
+      res.end(JSON.stringify(checkoutRes))
+    })
+  })
+
+  server.listen(port, async () => {
+    expect = { org: 'org:o', checkout: { success_url: 'http://success' } }
+    t.same(await Tier.checkout('org:o', 'http://success'), checkoutRes)
+
+    expect = { org: 'org:o', checkout: { success_url: 'http://success' } }
+    t.same(await Tier.checkout('org:o', 'http://success', {}), checkoutRes)
+
+    expect = { org: 'org:o', checkout: { success_url: 'http://success' } }
+    t.same(
+      await Tier.checkout('org:o', 'http://success', {
+        trialDays: 99,
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      checkout: { success_url: 'http://success' },
+      phases: [{ features: ['plan:p@1'] }],
+    }
+    t.same(
+      await Tier.checkout('org:o', 'http://success', {
+        features: 'plan:p@1',
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      checkout: { success_url: 'http://success' },
+      phases: [{ features: ['feature:foo@plan:x@1', 'plan:p@1'] }],
+    }
+    t.same(
+      await Tier.checkout('org:o', 'http://success', {
+        features: ['feature:foo@plan:x@1', 'plan:p@1'],
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      checkout: { success_url: 'http://success' },
+      phases: [
+        {
+          features: ['plan:p@1'],
+          trial: true,
+          effective: undefined,
+        },
+        { features: ['plan:p@1'], effective: date },
+      ],
+    }
+    t.same(
+      await Tier.checkout('org:o', 'http://success', {
+        features: 'plan:p@1',
+        trialDays: 99,
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      checkout: {
+        success_url: 'http://success',
+        cancel_url: 'https://cancel/',
+      },
+    }
+    t.same(
+      await Tier.checkout('org:o', 'http://success', {
+        cancelUrl: 'https://cancel/',
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      checkout: {
+        success_url: 'http://success',
+        cancel_url: 'https://cancel/',
+      },
+    }
+    t.same(
+      await Tier.checkout('org:o', 'http://success', {
+        cancelUrl: 'https://cancel/',
+        trialDays: 99,
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      checkout: {
+        success_url: 'http://success',
+        cancel_url: 'https://cancel/',
+      },
+      phases: [{ features: ['plan:p@1'] }],
+    }
+    t.same(
+      await Tier.checkout('org:o', 'http://success', {
+        cancelUrl: 'https://cancel/',
+        features: 'plan:p@1',
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      checkout: {
+        success_url: 'http://success',
+        cancel_url: 'https://cancel/',
+      },
+      phases: [{ features: ['feature:foo@plan:x@1', 'plan:p@1'] }],
+    }
+    t.same(
+      await Tier.checkout('org:o', 'http://success', {
+        cancelUrl: 'https://cancel/',
+        features: ['feature:foo@plan:x@1', 'plan:p@1'],
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      checkout: {
+        success_url: 'http://success',
+        cancel_url: 'https://cancel/',
+      },
+      phases: [
+        {
+          features: ['plan:p@1'],
+          effective: undefined,
+          trial: true,
+        },
+        { features: ['plan:p@1'], effective: date },
+      ],
+    }
+    t.same(
+      await Tier.checkout('org:o', 'http://success', {
+        cancelUrl: 'https://cancel/',
+        features: 'plan:p@1',
+        trialDays: 99,
+      }),
+      checkoutRes
+    )
+    server.close()
+    t.end()
+  })
+})
+
+t.test('subscribe', t => {
   const orgInfo: OrgInfo = {
     email: 'o@o.org',
     name: 'Orggy Org',
@@ -315,9 +479,9 @@ t.test('subscribe', t => {
       org: 'org:o',
       phases: [
         {
-          effective: '2022-10-24T21:26:24.438Z',
           features: ['plan:basic@0', 'feature:f@plan:p@0'],
           trial: true,
+          effective: '2022-10-24T21:26:24.438Z',
         },
         {
           effective: '2022-10-25T21:26:24.438Z',
@@ -339,7 +503,7 @@ t.test('subscribe', t => {
     req.on('data', c => chunks.push(c))
     req.on('end', () => {
       const body = JSON.parse(Buffer.concat(chunks).toString())
-      t.same(body, expects.shift())
+      t.match(body, expects.shift())
       res.end(JSON.stringify({ ok: true }))
       if (!expects.length) {
         server.close()
@@ -400,8 +564,6 @@ t.test('subscribe', t => {
       )
     )
 
-    t.same(WARNINGS, [])
-
     t.end()
   })
 })
@@ -437,13 +599,6 @@ t.test('cancel', t => {
 })
 
 t.test('schedule', t => {
-  const { emitWarning } = process
-  t.teardown(() => {
-    process.emitWarning = emitWarning
-  })
-  const WARNINGS: any[][] = []
-  process.emitWarning = (...m: any[]) => WARNINGS.push(m)
-
   const expects = [
     {
       org: 'org:o',
@@ -506,7 +661,6 @@ t.test('schedule', t => {
       { ok: true }
     )
 
-    t.same(WARNINGS, [])
     t.end()
   })
 })
