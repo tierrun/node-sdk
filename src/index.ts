@@ -172,14 +172,13 @@ export async function can(org: OrgName, feature: FeatureName): Promise<Answer> {
 export async function subscribe(
   org: OrgName,
   features: Features | Features[],
-  { effective, info, trialDays, checkout }: SubscribeParams = {}
+  { effective, info, trialDays }: SubscribeParams = {}
 ): Promise<ScheduleResponse> {
   const tier = await getClient()
   return await tier.subscribe(org, features, {
     effective,
     info,
     trialDays,
-    checkout,
   })
 }
 
@@ -191,10 +190,10 @@ export async function cancel(org: OrgName): Promise<ScheduleResponse> {
 export async function schedule(
   org: OrgName,
   phases?: Phase[],
-  { info, checkout }: ScheduleParams = {}
+  { info }: ScheduleParams = {}
 ): Promise<ScheduleResponse> {
   const tier = await getClient()
-  return await tier.schedule(org, phases, { info, checkout })
+  return await tier.schedule(org, phases, { info })
 }
 
 export async function updateOrg(

@@ -109,12 +109,14 @@ This Error subclass contains the following fields:
 
 ## API METHODS
 
-### `subscribe(org, plan, { info, trialDays, checkout })`
+### `subscribe(org, plan, { info, trialDays })`
 
 Subscribe an org to the specified plan effective immediately.
 
-Plan may be either a versioned plan name, or an array of
-versioned plan names.
+Plan may be either a versioned plan name (for example,
+`plan:bar@1`), or "feature plan" name (for example
+`feature:foo@plan:bar@1`), or an array of versioned plan names
+and feature plan names.
 
 If no effective date is provided, then the plan is effective
 immediately.
@@ -127,14 +129,7 @@ will be prepended with the same features, and the effective date
 will on the non-trial phase will be delayed until the end of the
 trial period.
 
-**Experimental**: If `checkout` is set to an object with a
-`success_url` string and optionally a `cancel_url` string, then
-the response will contain a `checkout_url`, and the subscription
-will not be created until the user completes the steps at the
-provided URL. **This API is experimental, and may change in a
-future update.**
-
-### `schedule(org, phases, { info, checkout })`
+### `schedule(org, phases, { info })`
 
 Create a subscription schedule phase for each of the sets of
 plans specified in the `phases` array.
@@ -154,13 +149,6 @@ have an effective date, and start immediately.
 
 If `info` is provided, it updates the org with info in the same
 way as calling `updateOrg(org, info)`.
-
-**Experimental**: If `checkout` is set to an object with a
-`success_url` string and optionally a `cancel_url` string, then
-the response will contain a `checkout_url`, and the subscription
-will not be created until the user completes the steps at the
-provided URL. **This API is experimental, and may change in a
-future update.**
 
 
 ### `updateOrg(org, info)`

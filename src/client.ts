@@ -15,6 +15,42 @@ export interface Model {
   }
 }
 
+// turn (features, {trialDays, effective}) into a set of phases
+const featuresToPhases = ({
+  features,
+  trialDays,
+  effective,
+}: {
+  features: Features | Features[]
+  trialDays?: number
+  effective?: Date
+}): Phase[] => {
+  const phases: Phase[] = !Array.isArray(features)
+    ? [{ features: [features], effective }]
+    : features.length
+    ? [{ features, effective }]
+    : []
+
+  if (trialDays !== undefined) {
+    if (typeof trialDays !== 'number' || trialDays <= 0) {
+      throw new TypeError('trialDays must be number >0 if specified')
+    }
+    if (!phases.length) {
+      throw new TypeError('trialDays may not be set without a subscription')
+    }
+    const real = phases[0]
+    /* c8 ignore start */
+    const effective = real.effective || new Date()
+    /* c8 ignore stop */
+    real.effective = new Date(
+      effective.getTime() + 1000 * 60 * 60 * 24 * trialDays
+    )
+    phases.unshift({ ...real, trial: true, effective })
+  }
+
+  return phases
+}
+
 // just keeping the double-negative in one place, since I so often
 // type this wrong and get annoyed.
 const isVArray = (arr: any[], valTest: (v: any) => boolean) =>
@@ -314,16 +350,10 @@ export const isPhase = (p: any): p is Phase =>
   Array.isArray(p.features) &&
   !p.features.some((f: any) => !isFeatures(f))
 
-export interface CheckoutParams {
-  success_url?: string
-  cancel_url?: string
-}
-
 export interface ScheduleRequest {
   org: OrgName
   phases?: Phase[] | [CancelPhase]
   info?: OrgInfo
-  checkout?: CheckoutParams
 }
 
 /**
@@ -331,20 +361,16 @@ export interface ScheduleRequest {
  */
 export type SubscribeRequest = ScheduleRequest
 
-export interface ScheduleResponse {
-  checkout_url?: string
-}
+export interface ScheduleResponse {}
 
 export interface SubscribeParams {
   effective?: Date
   info?: OrgInfo
   trialDays?: number
-  checkout?: CheckoutParams
 }
 
 export interface ScheduleParams {
   info?: OrgInfo
-  checkout?: CheckoutParams
 }
 
 export interface PhasesResponse {
@@ -593,32 +619,13 @@ export class Tier {
   public async subscribe(
     org: OrgName,
     features: Features | Features[],
-    { effective, info, trialDays, checkout }: SubscribeParams = {}
-  ): Promise<{}> {
-    const phases: Phase[] = !Array.isArray(features)
-      ? [{ features: [features], effective }]
-      : features.length
-      ? [{ features, effective }]
-      : []
-
-    if (trialDays !== undefined) {
-      if (typeof trialDays !== 'number' || trialDays <= 0) {
-        throw new TypeError('trialDays must be number >0 if specified')
-      }
-      if (!phases.length) {
-        throw new TypeError('trialDays may not be set without a subscription')
-      }
-      const real = phases[0]
-      /* c8 ignore start */
-      const effective = real.effective || new Date()
-      /* c8 ignore stop */
-      real.effective = new Date(
-        effective.getTime() + 1000 * 60 * 60 * 24 * trialDays
-      )
-      phases.unshift({ ...real, trial: true, effective })
-    }
-
-    return await this.schedule(org, phases, { info, checkout })
+    { effective, info, trialDays }: SubscribeParams = {}
+  ): Promise<ScheduleResponse> {
+    return await this.schedule(
+      org,
+      featuresToPhases({ features, effective, trialDays }),
+      { info }
+    )
   }
 
   public async cancel(org: OrgName) {
@@ -633,9 +640,9 @@ export class Tier {
   public async schedule(
     org: OrgName,
     phases?: Phase[],
-    { info, checkout }: ScheduleParams = {}
+    { info }: ScheduleParams = {}
   ) {
-    const sr: ScheduleRequest = { org, phases, info, checkout }
+    const sr: ScheduleRequest = { org, phases, info }
     return await this.apiPost<ScheduleRequest, ScheduleResponse>(
       '/v1/subscribe',
       sr
