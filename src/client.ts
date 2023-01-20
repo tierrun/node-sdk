@@ -40,7 +40,7 @@ const featuresToPhases = (
       throw new TypeError('trialDays may not be set without a subscription')
     }
     const real = phases[0]
-    const effective = real.effective
+    const { effective } = real
     const start = (effective || new Date()).getTime()
     const offset = 1000 * 60 * 60 * 24 * trialDays
     real.effective = new Date(start + offset)
@@ -369,11 +369,10 @@ export interface CheckoutParams {
 // change when /v1/checkout api lands
 export interface CheckoutRequest {
   org: OrgName
-  phases?: Phase[]
-  checkout: {
-    success_url: string
-    cancel_url?: string
-  }
+  success_url: string
+  features?: Features[]
+  trial_days?: number
+  cancel_url?: string
 }
 
 export interface CheckoutResponse {
@@ -654,17 +653,16 @@ export class Tier {
   ): Promise<CheckoutResponse> {
     const cr: CheckoutRequest = {
       org,
-      checkout: {
-        success_url: successUrl,
-        cancel_url: params.cancelUrl,
-      },
+      success_url: successUrl,
+      cancel_url: params.cancelUrl,
     }
     const { features, trialDays } = params
     if (features) {
-      cr.phases = featuresToPhases(features, { trialDays })
+      cr.features = Array.isArray(features) ? features : [features]
+      cr.trial_days = trialDays
     }
     return await this.apiPost<CheckoutRequest, CheckoutResponse>(
-      '/v1/subscribe',
+      '/v1/checkout',
       cr
     )
   }

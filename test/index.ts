@@ -288,7 +288,7 @@ t.test('checkout', t => {
   const server = createServer((req, res) => {
     res.setHeader('connection', 'close')
     t.equal(req.method, 'POST')
-    t.equal(req.url, '/v1/subscribe')
+    t.equal(req.url, '/v1/checkout')
     const chunks: Buffer[] = []
     req.on('data', c => chunks.push(c))
     req.on('end', () => {
@@ -300,13 +300,13 @@ t.test('checkout', t => {
   })
 
   server.listen(port, async () => {
-    expect = { org: 'org:o', checkout: { success_url: 'http://success' } }
+    expect = { org: 'org:o', success_url: 'http://success' }
     t.same(await Tier.checkout('org:o', 'http://success'), checkoutRes)
 
-    expect = { org: 'org:o', checkout: { success_url: 'http://success' } }
+    expect = { org: 'org:o', success_url: 'http://success' }
     t.same(await Tier.checkout('org:o', 'http://success', {}), checkoutRes)
 
-    expect = { org: 'org:o', checkout: { success_url: 'http://success' } }
+    expect = { org: 'org:o', success_url: 'http://success' }
     t.same(
       await Tier.checkout('org:o', 'http://success', {
         trialDays: 99,
@@ -316,8 +316,8 @@ t.test('checkout', t => {
 
     expect = {
       org: 'org:o',
-      checkout: { success_url: 'http://success' },
-      phases: [{ features: ['plan:p@1'] }],
+      success_url: 'http://success',
+      features: ['plan:p@1'],
     }
     t.same(
       await Tier.checkout('org:o', 'http://success', {
@@ -328,8 +328,8 @@ t.test('checkout', t => {
 
     expect = {
       org: 'org:o',
-      checkout: { success_url: 'http://success' },
-      phases: [{ features: ['feature:foo@plan:x@1', 'plan:p@1'] }],
+      success_url: 'http://success',
+      features: ['feature:foo@plan:x@1', 'plan:p@1'],
     }
     t.same(
       await Tier.checkout('org:o', 'http://success', {
@@ -340,15 +340,9 @@ t.test('checkout', t => {
 
     expect = {
       org: 'org:o',
-      checkout: { success_url: 'http://success' },
-      phases: [
-        {
-          features: ['plan:p@1'],
-          trial: true,
-          effective: undefined,
-        },
-        { features: ['plan:p@1'], effective: date },
-      ],
+      success_url: 'http://success',
+      features: ['plan:p@1'],
+      trial_days: 99,
     }
     t.same(
       await Tier.checkout('org:o', 'http://success', {
@@ -360,10 +354,8 @@ t.test('checkout', t => {
 
     expect = {
       org: 'org:o',
-      checkout: {
-        success_url: 'http://success',
-        cancel_url: 'https://cancel/',
-      },
+      success_url: 'http://success',
+      cancel_url: 'https://cancel/',
     }
     t.same(
       await Tier.checkout('org:o', 'http://success', {
@@ -374,10 +366,8 @@ t.test('checkout', t => {
 
     expect = {
       org: 'org:o',
-      checkout: {
-        success_url: 'http://success',
-        cancel_url: 'https://cancel/',
-      },
+      success_url: 'http://success',
+      cancel_url: 'https://cancel/',
     }
     t.same(
       await Tier.checkout('org:o', 'http://success', {
@@ -389,11 +379,9 @@ t.test('checkout', t => {
 
     expect = {
       org: 'org:o',
-      checkout: {
-        success_url: 'http://success',
-        cancel_url: 'https://cancel/',
-      },
-      phases: [{ features: ['plan:p@1'] }],
+      success_url: 'http://success',
+      cancel_url: 'https://cancel/',
+      features: ['plan:p@1'],
     }
     t.same(
       await Tier.checkout('org:o', 'http://success', {
@@ -405,11 +393,9 @@ t.test('checkout', t => {
 
     expect = {
       org: 'org:o',
-      checkout: {
-        success_url: 'http://success',
-        cancel_url: 'https://cancel/',
-      },
-      phases: [{ features: ['feature:foo@plan:x@1', 'plan:p@1'] }],
+      success_url: 'http://success',
+      cancel_url: 'https://cancel/',
+      features: ['feature:foo@plan:x@1', 'plan:p@1'],
     }
     t.same(
       await Tier.checkout('org:o', 'http://success', {
@@ -421,18 +407,10 @@ t.test('checkout', t => {
 
     expect = {
       org: 'org:o',
-      checkout: {
-        success_url: 'http://success',
-        cancel_url: 'https://cancel/',
-      },
-      phases: [
-        {
-          features: ['plan:p@1'],
-          effective: undefined,
-          trial: true,
-        },
-        { features: ['plan:p@1'], effective: date },
-      ],
+      success_url: 'http://success',
+      cancel_url: 'https://cancel/',
+      features: ['plan:p@1'],
+      trial_days: 99,
     }
     t.same(
       await Tier.checkout('org:o', 'http://success', {
@@ -491,6 +469,20 @@ t.test('subscribe', t => {
     },
     {
       org: 'org:o',
+      phases: [
+        {
+          features: ['plan:basic@0', 'feature:f@plan:p@0'],
+          trial: true,
+          effective: undefined,
+        },
+        {
+          effective: date,
+          features: ['plan:basic@0', 'feature:f@plan:p@0'],
+        },
+      ],
+    },
+    {
+      org: 'org:o',
       phases: [],
       info: orgInfo,
     },
@@ -529,6 +521,13 @@ t.test('subscribe', t => {
     t.same(
       await Tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
         effective: new Date('2022-10-24T21:26:24.438Z'),
+        trialDays: 1,
+      }),
+      { ok: true }
+    )
+
+    t.same(
+      await Tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
         trialDays: 1,
       }),
       { ok: true }
