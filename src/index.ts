@@ -220,7 +220,7 @@ export async function whoami(): Promise<WhoAmIResponse> {
 
 export async function lookupPhase(org: OrgName): Promise<CurrentPhase> {
   const tier = await getClient()
-  return tier.phase(org)
+  return tier.lookupPhase(org)
 }
 
 export async function push(model: Model): Promise<PushResponse> {
