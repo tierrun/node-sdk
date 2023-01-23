@@ -1,5 +1,11 @@
 # change log
 
+## 4.1
+
+- Remove previous experimental iteration of Checkout
+- Implement Checkout using `/v1/checkout` API endpoint
+- This requires version 0.7.1 or higher of the tier binary
+
 ## 4.0
 
 - Move growing parameter lists into `SubscribeOptions` and
