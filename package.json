@@ -9,22 +9,22 @@
   "exports": {
     ".": {
       "import": {
-        "default": "./dist/mjs/index.js",
-        "types": "./dist/mjs/index.d.ts"
+        "types": "./dist/mjs/index.d.ts",
+        "default": "./dist/mjs/index.js"
       },
       "require": {
-        "default": "./dist/cjs/index.js",
-        "types": "./dist/cjs/index.d.ts"
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
       }
     },
     "./client": {
       "import": {
-        "default": "./dist/mjs/client.js",
-        "types": "./dist/mjs/client.d.ts"
+        "types": "./dist/mjs/client.d.ts",
+        "default": "./dist/mjs/client.js"
       },
       "require": {
-        "default": "./dist/cjs/client.js",
-        "types": "./dist/cjs/client.d.ts"
+        "types": "./dist/cjs/client.d.ts",
+        "default": "./dist/cjs/client.js"
       }
     }
   },
