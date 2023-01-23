@@ -39,7 +39,10 @@ started immediately using the `init()` method. It will listen on
 a port determined by the process ID.
 
 ```ts
+// hybrid module, either form works
 import tier from 'tier'
+// or
+const { default: tier } = require('tier')
 // that's it, it'll start the sidecar as needed
 ```
 
@@ -68,9 +71,12 @@ functionality because you are managing the sidecar yourself, you
 can load and instantiate the client:
 
 ```ts
+// hybrid module, either works
 import { Tier } from 'tier/client'
-// or, if you don't have import maps:
-// import { Tier } from 'https://unpkg.com/tier@^3.1.1/dist/mjs/client.js'
+// or
+const { Tier } = require('tier/client')
+// or, if using deno or CFW and you don't have import maps:
+import { Tier } from 'https://unpkg.com/tier@^4.1/dist/mjs/client.js'
 
 const tier = new Tier({
   // Required: the base url to the running `tier serve` instance
