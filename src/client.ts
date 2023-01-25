@@ -347,6 +347,7 @@ interface CurrentPhaseResponse {
 export interface Phase {
   effective?: Date
   features: Features[]
+  plans?: PlanName[]
   trial?: boolean
 }
 
