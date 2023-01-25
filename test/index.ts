@@ -280,7 +280,7 @@ t.test('report', t => {
 
 t.test('checkout', t => {
   const checkoutRes = {
-    checkout_url: 'https://www.example.com/checkout',
+    url: 'https://www.example.com/checkout',
   }
 
   let expect: { [k: string]: any } = { nope: 'invalid' }

@@ -376,7 +376,7 @@ export interface CheckoutRequest {
 }
 
 export interface CheckoutResponse {
-  checkout_url: string
+  url: string
 }
 
 export interface ScheduleRequest {

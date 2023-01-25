@@ -158,10 +158,10 @@ way as calling `updateOrg(org, info)`.
 
 ### `checkout(org, successUrl, { cancelUrl, features, trialDays })`
 
-Generate a Stripe Checkout flow, and return a `{ checkout_url }`
-object.  Redirect the user to that `checkout_url` to have them
-complete the checkout flow.  Stripe will redirect them back to
-the `successUrl` when the flow is completed successfully.
+Generate a Stripe Checkout flow, and return a `{ url }` object.
+Redirect the user to that `url` to have them complete the
+checkout flow.  Stripe will redirect them back to the
+`successUrl` when the flow is completed successfully.
 
 Optional parameters:
 
