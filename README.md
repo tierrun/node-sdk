@@ -2,6 +2,8 @@
 
 SDK for using https://tier.run in Node.js applications
 
+[Generated typedocs](https://tierrun.github.io/node-sdk/)
+
 ## INSTALLING
 
 First, install [the Tier binary](https://tier.run/docs/install).
