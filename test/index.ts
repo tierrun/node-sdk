@@ -158,6 +158,16 @@ t.test('pullLatest', t => {
     res.end(
       JSON.stringify({
         plans: {
+          'plan:mixednum@9test': {},
+          'plan:mixednum@9999999': {},
+          'plan:mixednum@0test': {},
+          'plan:mixednum@1000': {},
+          'plan:alpha@dog': {},
+          'plan:alpha@cat': {},
+          'plan:longnum@1': {},
+          'plan:longnum@888': {},
+          'plan:longnum@1000': {},
+          'plan:longnum@99': {},
           'plan:foo@1': {},
           'plan:foo@0': {},
           'plan:bar@7': {},
@@ -172,6 +182,9 @@ t.test('pullLatest', t => {
       plans: {
         'plan:foo@2': {},
         'plan:bar@7': {},
+        'plan:longnum@1000': {},
+        'plan:alpha@dog': {},
+        'plan:mixednum@9test': {},
       },
     })
     t.end()

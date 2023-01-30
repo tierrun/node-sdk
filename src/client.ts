@@ -1,14 +1,35 @@
 // just the client bits, assuming that the sidecar is already
 // initialized and running somewhere.
 
+/**
+ * The name of an organization, used to uniquely reference a
+ * customer account within Tier. Any unique string identifier,
+ * prefixed with 'org:'
+ */
 export type OrgName = `org:${string}`
+
+/**
+ * Test whether a value is a valid {@link OrgName}
+ */
 export const isOrgName = (o: any): o is OrgName =>
   typeof o === 'string' && o.startsWith('org:') && o !== 'org:'
 
+/**
+ * The name of a feature within Tier.  Can be any string
+ * containing ASCII alphanumeric characters and ':'
+ */
 export type FeatureName = `feature:${string}`
+
+/**
+ * Test whether a value is a valid {@link FeatureName}
+ */
 export const isFeatureName = (f: any): f is FeatureName =>
   typeof f === 'string' && /^feature:[a-zA-Z0-9:]+$/.test(f)
 
+/**
+ * A Tier pricing model, as would be stored within a `pricing.json`
+ * file, or created on <https://model.tier.run/>
+ */
 export interface Model {
   plans: {
     [p: PlanName]: Plan
@@ -106,9 +127,17 @@ const hasOnly = (obj: any, ...keys: string[]): boolean => {
   return true
 }
 
+/**
+ * Test whether a value is a valid {@link Model}
+ */
 export const isModel = (m: any): m is Model =>
   hasOnly(m, 'plans') && isKV(m.plans, isPlanName, isPlan)
 
+/**
+ * Asserts that a value is a valid {@link Model}
+ *
+ * If it is not, then a string is thrown indicating the problem.
+ */
 export const validateModel = (m: any): asserts m is Model => {
   if (!isObj(m)) {
     throw 'not an object'
@@ -132,6 +161,9 @@ export const validateModel = (m: any): asserts m is Model => {
   }
 }
 
+/**
+ * The definition of a plan within a {@link Model}.
+ */
 export interface Plan {
   title?: string
   features?: {
@@ -144,6 +176,9 @@ export interface Plan {
 const isCurrency = (c: any): c is Plan['currency'] =>
   typeof c === 'string' && c.length === 3 && c === c.toLowerCase()
 
+/**
+ * Test whether a value is a valid {@link Plan}
+ */
 export const isPlan = (p: any): p is Plan =>
   isObj(p) &&
   hasOnly(p, 'title', 'currency', 'interval', 'features') &&
@@ -152,6 +187,11 @@ export const isPlan = (p: any): p is Plan =>
   optionalIs(p.currency, isCurrency) &&
   optionalIs(p.interval, isInterval)
 
+/**
+ * Asserts that a value is a valid {@link Plan}
+ *
+ * If not, throws a string indicating the source of the problem.
+ */
 export const validatePlan: (p: any) => void = (p: any): asserts p is Plan => {
   if (!isObj(p)) {
     throw 'not an object'
@@ -192,10 +232,19 @@ export const validatePlan: (p: any) => void = (p: any): asserts p is Plan => {
   }
 }
 
+/**
+ * Valid values for the `interval` field in a {@link FeatureDefinition}
+ */
 export type Interval = '@daily' | '@weekly' | '@monthly' | '@yearly'
+/**
+ * Test whether a value is a valid {@link Interval}
+ */
 export const isInterval = (i: any): i is Interval =>
   i === '@daily' || i === '@weekly' || i === '@monthly' || i === '@yearly'
 
+/**
+ * The definition of a feature within a {@link Plan}.
+ */
 export interface FeatureDefinition {
   title?: string
   base?: number
@@ -203,10 +252,19 @@ export interface FeatureDefinition {
   mode?: Mode
   aggregate?: Aggregate
 }
+/**
+ * Valid values for the `aggregate` field in a {@link FeatureDefinition}
+ */
 export type Aggregate = 'sum' | 'max' | 'last' | 'perpetual'
+/**
+ * Test whether a value is a valid {@link Aggregate}
+ */
 export const isAggregate = (a: any): a is Aggregate =>
   a === 'sum' || a === 'max' || a === 'last' || a === 'perpetual'
 
+/**
+ * Test whether a value is a valid {@link FeatureDefinition}
+ */
 export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
   hasOnly(f, 'base', 'tiers', 'mode', 'aggregate', 'title') &&
   optionalString(f.title) &&
@@ -215,7 +273,11 @@ export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
   optionalIsVArray(f.tiers, isFeatureTier) &&
   !(f.base !== undefined && f.tiers) &&
   optionalIs(f.aggregate, isAggregate)
-
+/**
+ * Asserts that a value is a valid {@link FeatureDefinition}
+ *
+ * If not, a string is thrown indicating the source of the problem.
+ */
 export const validateFeatureDefinition: (f: any) => void = (
   f: any
 ): asserts f is FeatureDefinition => {
@@ -263,9 +325,18 @@ export const validateFeatureDefinition: (f: any) => void = (
   }
 }
 
+/**
+ * Valid values for the `mode` field in a {@link FeatureDefinition}
+ */
 export type Mode = 'graduated' | 'volume'
+/**
+ * Test whether a value is a valiid {@link Mode}
+ */
 export const isMode = (m: any): m is Mode => m === 'graduated' || m === 'volume'
 
+/**
+ * Entry in the {@link FeatureDefinition} `tier` array
+ */
 export interface FeatureTier {
   upto?: number
   price?: number
@@ -277,12 +348,20 @@ const isNonNegInt = (n: any): boolean => Number.isInteger(n) && n >= 0
 const isNonNegNum = (n: any): boolean =>
   typeof n === 'number' && isFinite(n) && n >= 0
 
+/**
+ * Test whether a value is a valid {@link FeatureTier}
+ */
 export const isFeatureTier = (t: any): t is FeatureTier =>
   hasOnly(t, 'upto', 'price', 'base') &&
   optionalIs(t.upto, isPosInt) &&
   optionalIs(t.price, isNonNegNum) &&
   optionalIs(t.base, isNonNegInt)
 
+/**
+ * Validate that a value is a valid {@link FeatureTier}
+ *
+ * If not, a string is thrown indicating the source of the problem.
+ */
 export const validateFeatureTier: (t: any) => void = (
   t: any
 ): asserts t is FeatureTier => {
@@ -304,34 +383,77 @@ export const validateFeatureTier: (t: any) => void = (
   }
 }
 
+/**
+ * Object representing some amount of feature consumption.
+ */
 export interface Usage {
   feature: FeatureName
   used: number
   limit: number
 }
 
-// same as Usage, but with strings for dates
+/**
+ * The set of {@link Usage} values for each feature that an
+ * org has access to.
+ */
 export interface Limits {
   org: OrgName
   usage: Usage[]
 }
 
+/**
+ * A {@link Plan} identifier.  Format is `plan:<name>@<version>`.
+ * Name can contain any ASCII alphanumeric characters and `:`.
+ * Version can contain any ASCII alphanumeric characters.
+ */
 export type PlanName = `plan:${string}@${string}`
+/**
+ * An identifier for a feature as defined within a given plan.
+ * Format is `<feature>@<plan>` where `feature` is a {@link FeatureName}
+ * and `plan` is a {@link PlanName}.
+ *
+ * FeatureNameVersioned and {@link PlanName} strings may be used
+ * equivalently to specify prices and entitlements to Tier methods.
+ */
 export type FeatureNameVersioned = `${FeatureName}@${PlanName}`
+/**
+ * alias for {@link FeatureNameVersioned}
+ * @deprecated
+ */
 export type VersionedFeatureName = FeatureNameVersioned
+/**
+ * Either a {@link PlanName} or {@link FeatureNameVersioned}
+ *
+ * The type of values that may be used to specify prices and entitlements.
+ */
 export type Features = PlanName | FeatureNameVersioned
 
+/**
+ * Test whether a value is a valid {@link PlanName}
+ */
 export const isPlanName = (p: any): p is PlanName =>
   typeof p === 'string' && /^plan:[a-zA-Z0-9:]+@[a-zA-Z0-9]+$/.test(p)
 
+/**
+ * Test whether a value is a valid {@link FeatureNameVersioned}
+ */
 export const isFeatureNameVersioned = (f: any): f is FeatureNameVersioned =>
   typeof f === 'string' &&
   /^feature:[a-zA-Z0-9:]+@plan:[a-zA-Z0-9:]+@[a-zA-Z0-9]+$/.test(f)
+/**
+ * @deprecated alias for {@link isFeatureNameVersioned}
+ */
 export const isVersionedFeatureName = isFeatureNameVersioned
 
+/**
+ * Test whether a value is a valid {@link Features}
+ */
 export const isFeatures = (f: any): f is Features =>
   isPlanName(f) || isFeatureNameVersioned(f)
 
+/**
+ * Object representing the current phase in an org's subscription schedule
+ */
 export interface CurrentPhase {
   effective: Date
   features: FeatureNameVersioned[]
@@ -344,6 +466,10 @@ interface CurrentPhaseResponse {
   plans: PlanName[]
 }
 
+/**
+ * Object representing a phase in an org's subscription schedule, for
+ * creating new schedules via `tier.schedule()`.
+ */
 export interface Phase {
   effective?: Date
   features: Features[]
@@ -351,24 +477,33 @@ export interface Phase {
   trial?: boolean
 }
 
+/**
+ * Special empty {@link Phase} object that has no features, indicating
+ * that the org's plan should be terminated.
+ */
 export interface CancelPhase {}
 
 const isDate = (d: any): d is Date => isObj(d) && d instanceof Date
 
+/**
+ * Test whether a value is a valid {@link Phase}
+ */
 export const isPhase = (p: any): p is Phase =>
   isObj(p) &&
   optionalIs(p.effective, isDate) &&
   optionalType(p.trial, 'boolean') &&
   isVArray(p.features, isFeatures)
 
+/**
+ * Options for the {@link Tier.checkout} method
+ */
 export interface CheckoutParams {
   cancelUrl?: string
   features?: Features | Features[]
   trialDays?: number
 }
 
-// change when /v1/checkout api lands
-export interface CheckoutRequest {
+interface CheckoutRequest {
   org: OrgName
   success_url: string
   features?: Features[]
@@ -376,44 +511,50 @@ export interface CheckoutRequest {
   cancel_url?: string
 }
 
+/**
+ * Response from the {@link Tier.checkout} method, indicating the url
+ * that the user must visit to complete the checkout process.
+ */
 export interface CheckoutResponse {
   url: string
 }
 
-export interface ScheduleRequest {
+interface ScheduleRequest {
   org: OrgName
   phases?: Phase[] | [CancelPhase]
   info?: OrgInfo
 }
 
 /**
- * @deprecated alias for ScheduleRequest
+ * Response from the methods that use the `/v1/subscribe` endpoint.
  */
-export type SubscribeRequest = ScheduleRequest
-
 export interface ScheduleResponse {}
 
+/**
+ * Options for the {@link Tier.subscribe} method
+ */
 export interface SubscribeParams {
   effective?: Date
   info?: OrgInfo
   trialDays?: number
 }
 
+/**
+ * Options for the {@link Tier.schedule} method
+ */
 export interface ScheduleParams {
   info?: OrgInfo
 }
 
-export interface PhasesResponse {
-  org: OrgName
-  phases: Phase[]
-}
-
+/**
+ * Options for the {@link Tier.report} and {@link Answer.report} methods
+ */
 export interface ReportParams {
   at?: Date
   clobber?: boolean
 }
 
-export interface ReportRequest {
+interface ReportRequest {
   org: OrgName
   feature: FeatureName
   n?: number
@@ -421,11 +562,22 @@ export interface ReportRequest {
   clobber?: boolean
 }
 
+/**
+ * Response from the {@link Tier.whois} method
+ */
 export interface WhoIsResponse {
   org: OrgName
   stripe_id: string
 }
 
+/**
+ * Object representing an org's billing metadata. Note that any fields
+ * not set (other than `metadata`) will be reset to empty `''` values
+ * on any update.
+ *
+ * Used by {@link Tier.lookupOrg}, {@link Tier.schedule}, and
+ * {@link Tier.subscribe} methods.
+ */
 export interface OrgInfo {
   email: string
   name: string
@@ -434,18 +586,31 @@ export interface OrgInfo {
   metadata: { [key: string]: string }
 }
 
+/**
+ * Response from the {@link Tier.lookupOrg} method
+ */
 export type LookupOrgResponse = WhoIsResponse & OrgInfo
 
+/**
+ * Object indicating the success status of a given feature and plan
+ * when using {@link Tier.push}
+ */
 export interface PushResult {
   feature: FeatureNameVersioned
   status: string
   reason: string
 }
 
+/**
+ * Response from the {@link Tier.push} method
+ */
 export interface PushResponse {
   results?: PushResult[]
 }
 
+/**
+ * Response from the {@link Tier.whoami} method
+ */
 export interface WhoAmIResponse {
   id: string
   email: string
@@ -455,25 +620,64 @@ export interface WhoAmIResponse {
 }
 
 // errors
+/**
+ * Response returned by the Tier API on failure
+ * @internal
+ */
 export interface ErrorResponse {
   status: number
   code: string
   message: string
 }
+/**
+ * Test whether a value is a valid {@link ErrorResponse}
+ * @internal
+ */
 export const isErrorResponse = (e: any): e is ErrorResponse =>
   isObj(e) &&
   typeof e.status === 'number' &&
   typeof e.message === 'string' &&
   typeof e.code === 'string'
 
+/**
+ * Test whether a value is a valid {@link TierError}
+ */
 export const isTierError = (e: any): e is TierError =>
   isObj(e) && e instanceof TierError
 
+/**
+ * The object returned by the {@link Tier.can} method.
+ * Should not be instantiated directly.
+ */
 export class Answer {
+  /**
+   * Indicates that the org is not over their limit for the feature
+   * Note that when an error occurs, `ok` will be set to `true`,
+   * so that we fail open by default. In order to prevent access
+   * on API failures, you must check *both* `answer.ok` *and*
+   * `answer.err`.
+   */
   ok: boolean
+  /**
+   * The feature checked by {@link Tier.can}
+   */
   feature: FeatureName
+  /**
+   * The org checked by {@link Tier.can}
+   */
   org: OrgName
+  /**
+   * Reference to the {@link Tier} client in use.
+   * @internal
+   */
   client: Tier
+  /**
+   * Any error encountered during the feature limit check.
+   * Note that when an error occurs, `ok` will be set to `true`,
+   * so that we fail open by default. In order to prevent access
+   * on API failures, you must check *both* `answer.ok` *and*
+   * `answer.err`.
+   */
   err?: TierError
 
   constructor(
@@ -494,16 +698,42 @@ export class Answer {
     }
   }
 
-  async report(n: number = 1, options?: ReportParams) {
+  /**
+   * Report usage for the org and feature checked by {@link Tier.can}
+   */
+  public async report(n: number = 1, options?: ReportParams) {
     return this.client.report(this.org, this.feature, n, options)
   }
 }
 
+/**
+ * Error subclass raised for any error returned by the API.
+ * Should not be instantiated directly.
+ */
 export class TierError extends Error {
+  /**
+   * The API endpoint that was requested
+   */
   public path: string
+  /**
+   * The data that was sent to the API endpoint.  Will be a parsed
+   * JavaScript object unless the request JSON was invalid, in which
+   * case it will be a string.
+   */
   public requestData: any
+  /**
+   * The HTTP response status code returned
+   */
   public status: number
+  /**
+   * The `code` field in the {@link ErrorResponse}
+   */
   public code?: string
+  /**
+   * The HTTP response body.  Will be a parsed JavaScript object
+   * unless the response JSON was invalid, in which case it will
+   * be a string.
+   */
   public responseData: any
 
   constructor(path: string, reqBody: any, status: number, resBody: any) {
@@ -520,11 +750,42 @@ export class TierError extends Error {
   }
 }
 
-// actual client class
+const versionIsNewer = (oldV: string | undefined, newV: string): boolean => {
+  if (!oldV) {
+    return true
+  }
+  const oldN = /^0$|^[1-9][0-9]*$/.test(oldV) ? parseInt(oldV, 10) : NaN
+  const newN = /^0$|^[1-9][0-9]*$/.test(newV) ? parseInt(newV, 10) : NaN
+  // this will return false if either are NaN
+  return oldN < newN
+    ? true
+    : newN < oldN
+    ? false
+    : newV.localeCompare(oldV, 'en') > 0
+}
+
+/**
+ * The Tier client, main interface provided by the SDK.
+ *
+ * All methods are re-exported as top level functions by the main
+ * package export, in such a way that they create a client and
+ * spin up a Tier sidecar process on demand.
+ */
 export class Tier {
+  /**
+   * The `fetch()` implementation in use.  Will default to the Node
+   * built-in `fetch` if available, otherwise `node-fetch` will be used.
+   */
   readonly fetch: typeof fetch
+  /**
+   * The URL to the sidecar providing API endpoints
+   */
   readonly sidecar: string
 
+  /**
+   * Create a new Tier client.  Set `{ debug: true }` in the
+   * options object to enable debugging output.
+   */
   constructor({
     sidecar,
     fetchImpl = globalThis.fetch,
@@ -610,10 +871,16 @@ export class Tier {
     return (await res.json()) as TRes
   }
 
+  /**
+   * Look up the limits for all features for a given {@link OrgName}
+   */
   async lookupLimits(org: OrgName): Promise<Limits> {
     return await this.apiGet<Limits>('/v1/limits', { org })
   }
 
+  /**
+   * Look up limits for a given {@link FeatureName} and {@link OrgName}
+   */
   async lookupLimit(org: OrgName, feature: FeatureName): Promise<Usage> {
     const limits = await this.apiGet<Limits>('/v1/limits', { org })
     for (const usage of limits.usage) {
@@ -627,6 +894,9 @@ export class Tier {
     return { feature, used: 0, limit: 0 }
   }
 
+  /**
+   * Report metered feature usage
+   */
   public async report(
     org: OrgName,
     feature: FeatureName,
@@ -645,8 +915,13 @@ export class Tier {
     return await this.apiPost<ReportRequest>('/v1/report', req)
   }
 
-  // XXX: this method will change when /v1/checkout arrives
-  // For now, it's basically copypasta from tier.subscribe()
+  /**
+   * Generate a checkout URL to set an org's payment info, and optionally
+   * to create a subscription on completion.
+   *
+   * `successUrl` param should be a URL within your application where the
+   * user will be redirected upon completion.
+   */
   public async checkout(
     org: OrgName,
     successUrl: string,
@@ -668,6 +943,14 @@ export class Tier {
     )
   }
 
+  /**
+   * Simple interface for creating a new phase in the org's subscription
+   * schedule.
+   *
+   * Setting `trialDays` will cause it to prepend a "trial" phase on the
+   * effective date, and delay the creation of the actual non-trial
+   * subscription phase by the specified number of days.
+   */
   public async subscribe(
     org: OrgName,
     features: Features | Features[],
@@ -680,6 +963,9 @@ export class Tier {
     )
   }
 
+  /**
+   * Cancel an org's subscriptions
+   */
   public async cancel(org: OrgName) {
     const cp: CancelPhase = {}
     const sr: ScheduleRequest = { org, phases: [cp] }
@@ -689,6 +975,10 @@ export class Tier {
     )
   }
 
+  /**
+   * Advanced interface for creating arbitrary schedule phases in any
+   * order.
+   */
   public async schedule(
     org: OrgName,
     phases?: Phase[],
@@ -701,6 +991,10 @@ export class Tier {
     )
   }
 
+  /**
+   * Update an org's metadata. Note that any fields not set (other than
+   * `metadata`) will be reset to empty `''` values on any update.
+   */
   public async updateOrg(org: OrgName, info: OrgInfo) {
     const sr: ScheduleRequest = { org, info }
     return await this.apiPost<ScheduleRequest, ScheduleResponse>(
@@ -709,6 +1003,9 @@ export class Tier {
     )
   }
 
+  /**
+   * Get an org's billing provider identifier
+   */
   public async whois(org: OrgName): Promise<WhoIsResponse> {
     // don't send back an `info:null`
     const res = await this.apiGet<WhoIsResponse>('/v1/whois', { org })
@@ -720,6 +1017,9 @@ export class Tier {
 
   // note: same endpoint as whois, but when include=info is set, this hits
   // stripe every time and cannot be cached.
+  /**
+   * Look up all {@link OrgInfo} metadata about an org
+   */
   public async lookupOrg(org: OrgName): Promise<LookupOrgResponse> {
     return await this.apiGet<LookupOrgResponse>('/v1/whois', {
       org,
@@ -727,6 +1027,9 @@ export class Tier {
     })
   }
 
+  /**
+   * Fetch the current phase for an org
+   */
   public async lookupPhase(org: OrgName): Promise<CurrentPhase> {
     const resp = await this.apiGet<CurrentPhaseResponse>('/v1/phase', { org })
     return {
@@ -735,17 +1038,30 @@ export class Tier {
     }
   }
 
+  /**
+   * Pull the full {@link Model} pushed to Tier
+   */
   public async pull(): Promise<Model> {
     return this.apiGet<Model>('/v1/pull')
   }
 
-  async pullLatest(): Promise<Model> {
+  /**
+   * Similar to {@link Tier.pull}, but filters plans to only include
+   * the highest version of each plan.  Plan versions are sorted numerically
+   * if they are decimal integers, or lexically in the `en` locale otherwise.
+   *
+   * So, for example, the plan version `20test` will be considered "lower"
+   * than `9test`, because the non-numeric string causes it to be lexically
+   * sorted.  But the plan version `20` sill be considered "higher" than the
+   * plan version `9`, because both are strictly numeric.
+   */
+  public async pullLatest(): Promise<Model> {
     const model = await this.pull()
     const plans: { [k: PlanName]: Plan } = Object.create(null)
     const latest: { [k: string]: string } = Object.create(null)
     for (const id of Object.keys(model.plans)) {
       const [name, version] = id.split('@')
-      if (!latest[name] || version.localeCompare(latest[name], 'en') > 0) {
+      if (versionIsNewer(latest[name], version)) {
         latest[name] = version
       }
     }
@@ -756,15 +1072,28 @@ export class Tier {
     return { plans }
   }
 
-  async push(model: Model): Promise<PushResponse> {
+  /**
+   * Push a new {@link Model} to Tier
+   *
+   * Any previously pushed {@link PlanName} will be ignored, new
+   * plans will be added.
+   */
+  public async push(model: Model): Promise<PushResponse> {
     return await this.apiPost<Model, PushResponse>('/v1/push', model)
   }
 
-  async whoami(): Promise<WhoAmIResponse> {
+  /**
+   * Get information about the current sidecare API in use
+   */
+  public async whoami(): Promise<WhoAmIResponse> {
     return await this.apiGet<WhoAmIResponse>('/v1/whoami')
   }
 
-  async can(org: OrgName, feature: FeatureName): Promise<Answer> {
+  /**
+   * Return an {@link Answer} indicating whether an org can
+   * access a feature, or if they are at their plan limit.
+   */
+  public async can(org: OrgName, feature: FeatureName): Promise<Answer> {
     try {
       const usage = await this.lookupLimit(org, feature)
       return new Answer(this, org, feature, usage)
@@ -781,19 +1110,19 @@ export class Tier {
 
   /* c8 ignore start */
   /**
-   * @deprecated alias for lookupLimits
+   * @deprecated alias for {@link Tier.lookupLimits}
    */
-  async limits(org: OrgName): Promise<Limits> {
+  public async limits(org: OrgName): Promise<Limits> {
     return this.lookupLimits(org)
   }
   /**
-   * @deprecated alias for lookupLimit
+   * @deprecated alias for {@link Tier.lookupLimit}
    */
-  async limit(org: OrgName, feature: FeatureName): Promise<Usage> {
+  public async limit(org: OrgName, feature: FeatureName): Promise<Usage> {
     return this.lookupLimit(org, feature)
   }
   /**
-   * @deprecated alias for lookupPhase
+   * @deprecated alias for {@link Tier.lookupPhase}
    */
   public async phase(org: OrgName): Promise<CurrentPhase> {
     return this.lookupPhase(org)

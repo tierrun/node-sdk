@@ -162,7 +162,7 @@ way as calling `updateOrg(org, info)`.
 
 Generate a Stripe Checkout flow, and return a `{ url }` object.
 Redirect the user to that `url` to have them complete the
-checkout flow.  Stripe will redirect them back to the
+checkout flow. Stripe will redirect them back to the
 `successUrl` when the flow is completed successfully.
 
 Optional parameters:
@@ -172,12 +172,12 @@ Optional parameters:
 - `features` Either a versioned plan name (for example,
   `plan:bar@1`), or "feature plan" name (for example
   `feature:foo@plan:bar@1`), or an array of versioned plan names
-  and feature plan names.  If provided, then the user will be
+  and feature plan names. If provided, then the user will be
   subscribed to the relevant plan(s) once they complete the
-  Checkout flow.  If not provided, then the Checkout flow will
+  Checkout flow. If not provided, then the Checkout flow will
   only gather customer information.
 - `trialDays` Number of days to put the user on a "trial plan",
-  where they are not charged for any usage.  Only allowed when
+  where they are not charged for any usage. Only allowed when
   `features` is provided.
 
 ### `updateOrg(org, info)`
@@ -359,15 +359,30 @@ Fetches the pricing model from Stripe.
 
 Fetches the pricing model from Stripe, but only shows the plans
 with the highest versions (lexically sorted). This can be useful
-in building pricing pages in your application (assuming that
-"highest lexically sorted plan version" is the one that you want
-to show, of course).
+in building pricing pages in your application.
+
+Plan versions are sorted numerically if they are decimal
+integers, or lexically in the `en` locale otherwise.
+
+So, for example, the plan version `20test` will be considered
+"lower" than `9test`, because the non-numeric string causes it to
+be lexically sorted. But the plan version `20` sill be
+considered "higher" than the plan version `9`, because both are
+strictly numeric.
 
 For example, if `Tier.pull()` returns this:
 
 ```json
 {
   "plans": {
+    "plan:mixednum@9test": {},
+    "plan:mixednum@9999999": {},
+    "plan:mixednum@0test": {},
+    "plan:mixednum@1000": {},
+    "plan:alpha@dog": {},
+    "plan:alpha@cat": {},
+    "plan:longnum@1000": {},
+    "plan:longnum@99": {},
     "plan:foo@1": {},
     "plan:foo@0": {},
     "plan:bar@7": {},
@@ -379,11 +394,20 @@ For example, if `Tier.pull()` returns this:
 
 then `Tier.pullLatest()` will return:
 
-```json
+```js
 {
-  "plans": {
-    "plan:foo@2": {},
-    "plan:bar@7": {}
+  plans: {
+    // these are all sorted numerically, because the versions
+    // are simple positive integers without any leading 0
+    // characters.
+    'plan:foo@2': {},
+    'plan:bar@7': {},
+    'plan:longnum@1000': {},
+    // 'dog' and 'cat' sorted lexically, 'd' > 'c'
+    'plan:alpha@dog': {},
+    // these are sorted lexically, because even though SOME of
+    // are strictly numeric, this one is not.
+    'plan:mixednum@9test': {}
   }
 }
 ```
