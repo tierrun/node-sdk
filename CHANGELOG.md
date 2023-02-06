@@ -1,5 +1,12 @@
 # change log
 
+## 5.0
+
+- Add support for external Tier API server with Tier API Key
+- Rename `TIER_SIDECAR` env to `TIER_BASE_URL`
+- Refactor `child_process` into a dynamic import so that the main
+  export can be safely used where `child_process` is unavailable.
+
 ## 4.1
 
 - Remove previous experimental iteration of Checkout
