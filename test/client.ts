@@ -1,5 +1,13 @@
+import { createServer } from 'http'
 import t from 'tap'
 import { Tier } from '../'
+
+// node 16 didn't have fetch built in
+import { default as NodeFetch } from 'node-fetch'
+//@ts-ignore
+if (!globalThis.fetch) globalThis.fetch = NodeFetch
+
+const port = 10000 + (process.pid % 10000)
 
 t.test('debuglog', t => {
   const { error } = console
@@ -8,8 +16,10 @@ t.test('debuglog', t => {
   })
   const logs: any[][] = []
   console.error = (...m: any[]) => logs.push(m)
+  const apiKey = 'donotprintthisever'
   const tier = new Tier({
-    sidecar: 'http://localhost:8080',
+    baseURL: `http://localhost:${port}`,
+    apiKey,
   })
   //@ts-ignore
   tier.debugLog('hello')
@@ -19,5 +29,27 @@ t.test('debuglog', t => {
   //@ts-ignore
   tier.debugLog('hello')
   t.same(logs, [['tier:', 'hello']])
-  t.end()
+
+  const server = createServer((req, res) => {
+    t.equal(
+      req.headers.authorization,
+      `Basic ${Buffer.from(apiKey + ':').toString('base64')}`
+    )
+    res.setHeader('connection', 'close')
+    res.end(JSON.stringify({ ok: true }))
+  }).listen(port, async () => {
+    //@ts-ignore
+    const okGet = await tier.apiGet('/v1/get')
+    t.same(okGet, { ok: true })
+    //@ts-ignore
+    const okPost = await tier.apiPost('/v1/post', { some: 'data' })
+    t.same(okPost, { ok: true })
+    const dumpLogs = JSON.stringify(logs)
+    t.notMatch(dumpLogs, apiKey)
+    t.notMatch(dumpLogs, Buffer.from(apiKey).toString('base64'))
+    t.notMatch(dumpLogs, Buffer.from(apiKey + ':').toString('base64'))
+    t.notMatch(dumpLogs, Buffer.from(':' + apiKey).toString('base64'))
+    server.close()
+    t.end()
+  })
 })

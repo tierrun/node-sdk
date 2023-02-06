@@ -1,4 +1,6 @@
 //@ts-ignore
 global.fetch = undefined
+//@ts-ignore
+globalThis.fetch = undefined
 
-import './index'
+import './init'

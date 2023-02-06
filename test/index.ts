@@ -1,12 +1,36 @@
 import { createServer } from 'http'
 import t from 'tap'
-import Tier, { isTierError, OrgInfo, PushResponse } from '../'
+
+import type { OrgInfo, PushResponse } from '../'
+import { Tier } from '../dist/cjs/client.js'
+
 const port = 10000 + (process.pid % 10000)
 const date = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}Z$/
 
-t.match(Tier, {
-  init: Function,
-  exitHandler: Function,
+// fake the init for these tests
+let initCalled = false
+let _onDemandClient: Tier | undefined = undefined
+import {default as NodeFetch} from 'node-fetch'
+
+const { default: tier } = t.mock('../', {
+  '../dist/cjs/get-client.js': {
+    getClient: async (): Promise<Tier> => {
+      if (_onDemandClient) return _onDemandClient
+      initCalled = true
+      const baseURL = (process.env.TIER_BASE_URL = `http://localhost:${port}`)
+      return (_onDemandClient = new Tier({
+        baseURL,
+        //@ts-ignore
+        fetchImpl: (globalThis.fetch || NodeFetch) as typeof fetch
+      }))
+    },
+  },
+})
+// un-mock this one.
+import {isTierError} from '../'
+tier.isTierError = isTierError
+
+t.match(tier, {
   isOrgName: Function,
   isFeatureName: Function,
   isPlanName: Function,
@@ -30,44 +54,36 @@ t.match(Tier, {
   checkout: Function,
 })
 
-// fake the init for these tests
-let initCalled = false
-// @ts-ignore
-Tier.init = () => {
-  initCalled = true
-  process.env.TIER_SIDECAR = `http://localhost:${port}`
-}
-
 t.equal(initCalled, false, 'have not called init')
 
 t.test('type checks', async t => {
-  t.equal(Tier.isOrgName('org:foo'), true)
-  t.equal(Tier.isOrgName('foo'), false)
-  t.equal(Tier.isPhase({}), false)
-  t.equal(Tier.isPhase({ trial: 123 }), false)
-  t.equal(Tier.isFeatures('plan:ok@1'), true)
-  t.equal(Tier.isFeatures('feature:yup@plan:ok@1'), true)
-  t.equal(Tier.isFeatures('feature:nope'), false)
-  t.equal(Tier.isFeatures('feature:nope@2'), false)
-  t.equal(Tier.isVersionedFeatureName('feature:nope'), false)
-  t.equal(Tier.isVersionedFeatureName('feature:yup@plan:ok@1'), true)
-  t.equal(Tier.isFeatureName('feature:yup'), true)
-  t.equal(Tier.isFeatureName('nope'), false)
+  t.equal(tier.isOrgName('org:foo'), true)
+  t.equal(tier.isOrgName('foo'), false)
+  t.equal(tier.isPhase({}), false)
+  t.equal(tier.isPhase({ trial: 123 }), false)
+  t.equal(tier.isFeatures('plan:ok@1'), true)
+  t.equal(tier.isFeatures('feature:yup@plan:ok@1'), true)
+  t.equal(tier.isFeatures('feature:nope'), false)
+  t.equal(tier.isFeatures('feature:nope@2'), false)
+  t.equal(tier.isVersionedFeatureName('feature:nope'), false)
+  t.equal(tier.isVersionedFeatureName('feature:yup@plan:ok@1'), true)
+  t.equal(tier.isFeatureName('feature:yup'), true)
+  t.equal(tier.isFeatureName('nope'), false)
   t.equal(
-    Tier.isPhase({
+    tier.isPhase({
       features: ['feature:foo@plan:bar@1', 'plan:bar@2'],
     }),
     true
   )
   t.equal(
-    Tier.isPhase({
+    tier.isPhase({
       effective: 'not a date',
       features: ['feature:foo@plan:bar@1', 'plan:bar@2'],
     }),
     false
   )
   t.equal(
-    Tier.isPhase({
+    tier.isPhase({
       effective: new Date(),
       features: [
         'feature:foo@plan:bar@1',
@@ -88,7 +104,7 @@ t.test('lookupLimits', t => {
     res.end(JSON.stringify({ ok: true }))
   })
   server.listen(port, async () => {
-    t.same(await Tier.lookupLimits('org:o'), { ok: true })
+    t.same(await tier.lookupLimits('org:o'), { ok: true })
     t.end()
   })
 })
@@ -121,12 +137,12 @@ t.test('lookupLimit', t => {
     )
   })
   server.listen(port, async () => {
-    t.same(await Tier.lookupLimit('org:o', 'feature:storage'), {
+    t.same(await tier.lookupLimit('org:o', 'feature:storage'), {
       feature: 'feature:storage',
       used: 341,
       limit: 10000,
     })
-    t.same(await Tier.lookupLimit('org:o', 'feature:other'), {
+    t.same(await tier.lookupLimit('org:o', 'feature:other'), {
       feature: 'feature:other',
       used: 0,
       limit: 0,
@@ -144,7 +160,7 @@ t.test('pull', t => {
     res.end(JSON.stringify({ plans: {} }))
   })
   server.listen(port, async () => {
-    t.same(await Tier.pull(), { plans: {} })
+    t.same(await tier.pull(), { plans: {} })
     t.end()
   })
 })
@@ -178,7 +194,7 @@ t.test('pullLatest', t => {
     )
   })
   server.listen(port, async () => {
-    t.same(await Tier.pullLatest(), {
+    t.same(await tier.pullLatest(), {
       plans: {
         'plan:foo@2': {},
         'plan:bar@7': {},
@@ -209,7 +225,7 @@ t.test('lookupPhase', t => {
     )
   })
   server.listen(port, async () => {
-    t.same(await Tier.lookupPhase('org:o'), {
+    t.same(await tier.lookupPhase('org:o'), {
       effective: new Date('2022-10-13T16:52:11-07:00'),
       features: ['feature:storage@plan:free@1', 'feature:transfer@plan:free@1'],
       plans: ['plan:free@1'],
@@ -227,7 +243,7 @@ t.test('whois', t => {
     res.end(JSON.stringify({ org: 'org:o', stripe_id: 'cust_1234' }))
   })
   server.listen(port, async () => {
-    t.same(await Tier.whois('org:o'), { org: 'org:o', stripe_id: 'cust_1234' })
+    t.same(await tier.whois('org:o'), { org: 'org:o', stripe_id: 'cust_1234' })
     t.end()
   })
 })
@@ -241,7 +257,7 @@ t.test('whoami', t => {
     res.end(JSON.stringify({ ok: true }))
   })
   server.listen(port, async () => {
-    t.same(await Tier.whoami(), { ok: true })
+    t.same(await tier.whoami(), { ok: true })
     t.end()
   })
 })
@@ -279,9 +295,9 @@ t.test('report', t => {
   })
 
   server.listen(port, async () => {
-    t.same(await Tier.report('org:o', 'feature:f'), { ok: true })
+    t.same(await tier.report('org:o', 'feature:f'), { ok: true })
     t.same(
-      await Tier.report('org:o', 'feature:f', 10, {
+      await tier.report('org:o', 'feature:f', 10, {
         at: new Date('2022-10-24T21:26:24.438Z'),
         clobber: true,
       }),
@@ -314,14 +330,14 @@ t.test('checkout', t => {
 
   server.listen(port, async () => {
     expect = { org: 'org:o', success_url: 'http://success' }
-    t.same(await Tier.checkout('org:o', 'http://success'), checkoutRes)
+    t.same(await tier.checkout('org:o', 'http://success'), checkoutRes)
 
     expect = { org: 'org:o', success_url: 'http://success' }
-    t.same(await Tier.checkout('org:o', 'http://success', {}), checkoutRes)
+    t.same(await tier.checkout('org:o', 'http://success', {}), checkoutRes)
 
     expect = { org: 'org:o', success_url: 'http://success' }
     t.same(
-      await Tier.checkout('org:o', 'http://success', {
+      await tier.checkout('org:o', 'http://success', {
         trialDays: 99,
       }),
       checkoutRes
@@ -333,7 +349,7 @@ t.test('checkout', t => {
       features: ['plan:p@1'],
     }
     t.same(
-      await Tier.checkout('org:o', 'http://success', {
+      await tier.checkout('org:o', 'http://success', {
         features: 'plan:p@1',
       }),
       checkoutRes
@@ -345,7 +361,7 @@ t.test('checkout', t => {
       features: ['feature:foo@plan:x@1', 'plan:p@1'],
     }
     t.same(
-      await Tier.checkout('org:o', 'http://success', {
+      await tier.checkout('org:o', 'http://success', {
         features: ['feature:foo@plan:x@1', 'plan:p@1'],
       }),
       checkoutRes
@@ -358,7 +374,7 @@ t.test('checkout', t => {
       trial_days: 99,
     }
     t.same(
-      await Tier.checkout('org:o', 'http://success', {
+      await tier.checkout('org:o', 'http://success', {
         features: 'plan:p@1',
         trialDays: 99,
       }),
@@ -371,7 +387,7 @@ t.test('checkout', t => {
       cancel_url: 'https://cancel/',
     }
     t.same(
-      await Tier.checkout('org:o', 'http://success', {
+      await tier.checkout('org:o', 'http://success', {
         cancelUrl: 'https://cancel/',
       }),
       checkoutRes
@@ -383,7 +399,7 @@ t.test('checkout', t => {
       cancel_url: 'https://cancel/',
     }
     t.same(
-      await Tier.checkout('org:o', 'http://success', {
+      await tier.checkout('org:o', 'http://success', {
         cancelUrl: 'https://cancel/',
         trialDays: 99,
       }),
@@ -397,7 +413,7 @@ t.test('checkout', t => {
       features: ['plan:p@1'],
     }
     t.same(
-      await Tier.checkout('org:o', 'http://success', {
+      await tier.checkout('org:o', 'http://success', {
         cancelUrl: 'https://cancel/',
         features: 'plan:p@1',
       }),
@@ -411,7 +427,7 @@ t.test('checkout', t => {
       features: ['feature:foo@plan:x@1', 'plan:p@1'],
     }
     t.same(
-      await Tier.checkout('org:o', 'http://success', {
+      await tier.checkout('org:o', 'http://success', {
         cancelUrl: 'https://cancel/',
         features: ['feature:foo@plan:x@1', 'plan:p@1'],
       }),
@@ -426,7 +442,7 @@ t.test('checkout', t => {
       trial_days: 99,
     }
     t.same(
-      await Tier.checkout('org:o', 'http://success', {
+      await tier.checkout('org:o', 'http://success', {
         cancelUrl: 'https://cancel/',
         features: 'plan:p@1',
         trialDays: 99,
@@ -518,21 +534,21 @@ t.test('subscribe', t => {
 
   server.listen(port, async () => {
     t.same(
-      await Tier.subscribe('org:o', ['feature:foo@plan:bar@1', 'plan:pro@2']),
+      await tier.subscribe('org:o', ['feature:foo@plan:bar@1', 'plan:pro@2']),
       { ok: true }
     )
 
-    t.same(await Tier.subscribe('org:o', 'plan:basic@0'), { ok: true })
+    t.same(await tier.subscribe('org:o', 'plan:basic@0'), { ok: true })
 
     t.same(
-      await Tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
+      await tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
         effective: new Date('2022-10-24T21:26:24.438Z'),
       }),
       { ok: true }
     )
 
     t.same(
-      await Tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
+      await tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
         effective: new Date('2022-10-24T21:26:24.438Z'),
         trialDays: 1,
       }),
@@ -540,16 +556,16 @@ t.test('subscribe', t => {
     )
 
     t.same(
-      await Tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
+      await tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
         trialDays: 1,
       }),
       { ok: true }
     )
 
-    t.same(await Tier.subscribe('org:o', [], { info: orgInfo }), { ok: true })
+    t.same(await tier.subscribe('org:o', [], { info: orgInfo }), { ok: true })
 
     await t.rejects(
-      Tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
+      tier.subscribe('org:o', ['plan:basic@0', 'feature:f@plan:p@0'], {
         effective: new Date('2022-10-24T21:26:24.438Z'),
         trialDays: -1,
       }),
@@ -557,14 +573,14 @@ t.test('subscribe', t => {
     )
 
     await t.rejects(
-      Tier.subscribe('org:o', [], {
+      tier.subscribe('org:o', [], {
         trialDays: 1,
       }),
       { message: 'trialDays may not be set without a subscription' }
     )
 
     await t.rejects(
-      Tier.subscribe(
+      tier.subscribe(
         'org:o',
         [
           // @ts-ignore
@@ -604,7 +620,7 @@ t.test('cancel', t => {
   })
 
   server.listen(port, async () => {
-    t.same(await Tier.cancel('org:o'), { ok: true })
+    t.same(await tier.cancel('org:o'), { ok: true })
 
     t.end()
   })
@@ -652,7 +668,7 @@ t.test('schedule', t => {
 
   server.listen(port, async () => {
     t.same(
-      await Tier.schedule('org:o', [
+      await tier.schedule('org:o', [
         {
           features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
         },
@@ -660,7 +676,7 @@ t.test('schedule', t => {
       { ok: true }
     )
     t.same(
-      await Tier.schedule('org:o', [
+      await tier.schedule('org:o', [
         {
           effective: new Date('2022-10-24T21:26:24.438Z'),
           features: ['feature:foo@plan:bar@1', 'plan:pro@2'],
@@ -711,7 +727,7 @@ t.test('push', t => {
   })
 
   server.listen(port, async () => {
-    const actual = await Tier.push(expect)
+    const actual = await tier.push(expect)
     t.same(actual, response)
     t.end()
   })
@@ -733,7 +749,7 @@ t.test('error GET', t => {
     )
   })
   server.listen(port, async () => {
-    await t.rejects(Tier.whois('org:o'), {
+    await t.rejects(tier.whois('org:o'), {
       status: 404,
       code: 'not_found',
       message: 'Not Found',
@@ -759,7 +775,7 @@ t.test('error POST', t => {
     )
   })
   server.listen(port, async () => {
-    await t.rejects(Tier.whois('org:o'), {
+    await t.rejects(tier.whois('org:o'), {
       status: 404,
       code: 'not_found',
       message: 'Not Found',
@@ -798,7 +814,7 @@ t.test('error POST', t => {
   })
 
   server.listen(port, async () => {
-    await t.rejects(Tier.report('org:o', 'feature:f'), {
+    await t.rejects(tier.report('org:o', 'feature:f'), {
       status: 404,
       code: 'not_found',
       message: 'Not Found',
@@ -817,7 +833,7 @@ t.test('weird error GET', t => {
     res.end('wtf lol')
   })
   server.listen(port, async () => {
-    await t.rejects(Tier.whois('org:o'), {
+    await t.rejects(tier.whois('org:o'), {
       status: 200,
       code: undefined,
       message: 'Tier request failed',
@@ -852,8 +868,8 @@ t.test('weird error POST', t => {
 
   server.listen(port, async () => {
     await t.rejects(
-      Tier.report('org:o', 'feature:f').catch((e: any) => {
-        t.ok(Tier.isTierError(e))
+      tier.report('org:o', 'feature:f').catch((e: any) => {
+        t.ok(tier.isTierError(e))
         throw e
       }),
       {
@@ -893,7 +909,7 @@ t.test('updateOrg', t => {
   })
 
   server.listen(port, async () => {
-    const actual = await Tier.updateOrg('org:o', expect)
+    const actual = await tier.updateOrg('org:o', expect)
     t.same(actual, response)
     t.end()
   })
@@ -910,7 +926,7 @@ t.test('lookupOrg', t => {
     )
   })
   server.listen(port, async () => {
-    t.same(await Tier.lookupOrg('org:o'), {
+    t.same(await tier.lookupOrg('org:o'), {
       org: 'org:o',
       stripe_id: 'cust_1234',
       email: 'x@y.com',
@@ -952,9 +968,9 @@ t.test('report', t => {
   })
 
   server.listen(port, async () => {
-    t.same(await Tier.report('org:o', 'feature:f'), { ok: true })
+    t.same(await tier.report('org:o', 'feature:f'), { ok: true })
     t.same(
-      await Tier.report('org:o', 'feature:f', 10, {
+      await tier.report('org:o', 'feature:f', 10, {
         at: new Date('2022-10-24T21:26:24.438Z'),
         clobber: true,
       }),
@@ -1024,17 +1040,17 @@ t.test('can', t => {
     }
   })
   server.listen(port, async () => {
-    const cannot = await Tier.can('org:o', 'feature:cannot')
+    const cannot = await tier.can('org:o', 'feature:cannot')
     t.match(cannot, { ok: false, err: undefined })
 
-    const err = await Tier.can('org:error', 'feature:nope')
+    const err = await tier.can('org:error', 'feature:nope')
     t.match(err, {
       ok: true,
       err: { message: 'Tier request failed', status: 500 },
     })
     t.equal(isTierError(err.err), true)
 
-    const can = await Tier.can('org:o', 'feature:can')
+    const can = await tier.can('org:o', 'feature:can')
     t.match(can, { ok: true })
     t.match(await can.report(), { ok: true, err: undefined })
     t.match(await can.report(10), { ok: true, err: undefined })

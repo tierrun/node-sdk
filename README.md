@@ -33,12 +33,40 @@ for use in non-Node.js environments such as edge workers and
 Deno, as well as a simple functional SDK that manages spinning up
 the sidecar automatically.
 
-### Automatic Mode
+### Automatic Mode, Remote API Service
 
-Import the main module, and use the API methods provided. The
-sidecar will be started on the first API method, or may be
-started immediately using the `init()` method. It will listen on
-a port determined by the process ID.
+This works on any server-side contexts where you can set
+environment variables.
+
+Set the `TIER_BASE_URL` and `TIER_API_KEY` environment variables
+to the URL to the remote Tier service and the API key for the
+service.
+
+Import the main module, and use the methods provided.
+
+```ts
+// Set process.env.TIER_BASE_URL and process.env.TIER_API_KEY
+
+// hybrid module, either form works
+import tier from 'tier'
+// or
+const { default: tier } = require('tier')
+// that's it, it'll talk to the API server you set
+```
+
+### Automatic Mode, Sidecar on Localhost
+
+This works if you have Tier installed locally.
+
+Don't set any environment variables, just import the main module,
+and use the API methods provided.
+
+A Tier API sidecar process will be started on the first API
+method call. It will listen on a port determined by the process
+ID, and automatically shut down when the process terminates.
+
+To operate on live Stripe data (that is, to start the sidecar in
+live mode), set `TIER_LIVE=1` in the environment.
 
 ```ts
 // hybrid module, either form works
@@ -48,29 +76,21 @@ const { default: tier } = require('tier')
 // that's it, it'll start the sidecar as needed
 ```
 
-To point at a pre-existing running Tier sidecar, set the
-`TIER_SIDECAR` environment variable to its base URL.
-
-To operate on live Stripe data (that is, to start the sidecar in
-live mode), set `TIER_LIVE=1` in the environment.
-
-Turn on debug output by setting `TIER_DEBUG=1` or
-`NODE_DEBUG=tier` in the environment.
-
-Note that you must have previously run [`tier connect`](https://tier.run/docs/cli/connect) to authorize Tier to
+Note that you must have previously run [`tier
+connect`](https://tier.run/docs/cli/connect) to authorize Tier to
 access your Stripe account, or set the `STRIPE_API_KEY`
 environment variable.
 
-This of course requires that Node's `child_process` module is
-available. If `fetch` is not available, then the optional
-`node-fetch` dependency will be loaded as a polyfill.
+This requires that Node's `child_process` module is available, so
+does not work with environments that do not have access to it. If
+`fetch` is not available, then the optional `node-fetch`
+dependency will be loaded as a polyfill.
 
-### Raw Client Mode
+### Custom Client Custom Mode
 
 To use Tier in an environment where `child_process.spawn` is not
-available, or where you simply don't need this added
-functionality because you are managing the sidecar yourself, you
-can load and instantiate the client:
+available, or where you cannot set environment variables, you
+can load and instantiate the client yourself:
 
 ```ts
 // hybrid module, either works
@@ -82,7 +102,10 @@ import { Tier } from 'https://unpkg.com/tier@^4.1/dist/mjs/client.js'
 
 const tier = new Tier({
   // Required: the base url to the running `tier serve` instance
-  sidecar: myTierSidecarBaseURL,
+  baseURL: tierAPIServiceURL,
+
+  // optional, defaults to '', set an API key to access the service
+  apiKey: tierAPIKey,
 
   // Optional, only needed if fetch global is not available
   // fetchImpl: myFetchImplementation,

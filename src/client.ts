@@ -780,24 +780,32 @@ export class Tier {
   /**
    * The URL to the sidecar providing API endpoints
    */
-  readonly sidecar: string
+  readonly baseURL: string
+
+  /**
+   * API key for use with the hosted service on tier.run
+   */
+  readonly apiKey: string
 
   /**
    * Create a new Tier client.  Set `{ debug: true }` in the
    * options object to enable debugging output.
    */
   constructor({
-    sidecar,
+    baseURL,
+    apiKey = '',
     fetchImpl = globalThis.fetch,
     debug = false,
   }: {
-    sidecar: string
+    baseURL: string
+    apiKey?: string
     fetchImpl?: typeof fetch
     debug?: boolean
   }) {
     this.fetch = fetchImpl
     this.debug = !!debug
-    this.sidecar = sidecar
+    this.baseURL = baseURL
+    this.apiKey = apiKey
   }
 
   /* c8 ignore start */
@@ -815,7 +823,7 @@ export class Tier {
     path: string,
     query?: { [k: string]: string | string[] }
   ): Promise<T> {
-    const u = new URL(path, this.sidecar)
+    const u = new URL(path, this.baseURL)
     if (query) {
       for (const [k, v] of Object.entries(query)) {
         /* c8 ignore start */
@@ -830,7 +838,7 @@ export class Tier {
       }
     }
     this.debugLog('GET', u.toString())
-    const res = await this.fetch(u.toString())
+    const res = await this.fetch(u.toString(), basicAuth(this.apiKey))
     const text = await res.text()
     let responseData: any
     try {
@@ -849,14 +857,14 @@ export class Tier {
     path: string,
     body: TReq
   ): Promise<TRes> {
-    const u = new URL(path, this.sidecar)
-    const res = await this.fetch(u.toString(), {
+    const u = new URL(path, this.baseURL)
+    const res = await this.fetch(u.toString(), basicAuth(this.apiKey, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
       },
       body: JSON.stringify(body),
-    })
+    }))
     this.debugLog('POST', u.pathname, body)
     if (res.status < 200 || res.status > 299) {
       let responseData: any
@@ -1128,4 +1136,15 @@ export class Tier {
     return this.lookupPhase(org)
   }
   /* c8 ignore stop */
+}
+
+const basicAuth = (key: string, settings: RequestInit = {}):RequestInit => {
+  if (!key) return settings
+  return {
+    ...settings,
+    headers: {
+      ...(settings.headers || {}),
+      authorization: `Basic ${Buffer.from(key + ':').toString('base64')}`,
+    },
+  }
 }
