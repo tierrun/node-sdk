@@ -839,7 +839,8 @@ export class Tier {
     }
     this.debugLog('GET', u.toString())
     const { fetch } = this
-    const res = await fetch(u.toString(), basicAuth(this.apiKey))
+    const ctx = typeof window === 'undefined' ? globalThis : window
+    const res = await fetch.call(ctx, u.toString(), basicAuth(this.apiKey))
     const text = await res.text()
     let responseData: any
     try {
@@ -860,7 +861,9 @@ export class Tier {
   ): Promise<TRes> {
     const u = new URL(path, this.baseURL)
     const { fetch } = this
-    const res = await fetch(
+    const ctx = typeof window === 'undefined' ? globalThis : window
+    const res = await fetch.call(
+      ctx,
       u.toString(),
       basicAuth(this.apiKey, {
         method: 'POST',
