@@ -838,7 +838,8 @@ export class Tier {
       }
     }
     this.debugLog('GET', u.toString())
-    const res = await this.fetch(u.toString(), basicAuth(this.apiKey))
+    const { fetch } = this
+    const res = await fetch(u.toString(), basicAuth(this.apiKey))
     const text = await res.text()
     let responseData: any
     try {
@@ -858,7 +859,8 @@ export class Tier {
     body: TReq
   ): Promise<TRes> {
     const u = new URL(path, this.baseURL)
-    const res = await this.fetch(
+    const { fetch } = this
+    const res = await fetch(
       u.toString(),
       basicAuth(this.apiKey, {
         method: 'POST',

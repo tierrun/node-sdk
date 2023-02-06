@@ -6,6 +6,15 @@ import { Tier } from '../'
 import { default as NodeFetch } from 'node-fetch'
 //@ts-ignore
 if (!globalThis.fetch) globalThis.fetch = NodeFetch
+//@ts-ignore
+const f = globalThis.fetch
+//@ts-ignore
+globalThis.fetch = function(...args) {
+  if (this && this !== globalThis) {
+    throw new Error('can only call fetch() on globalThis')
+  }
+  return f.call(this, ...args)
+}
 
 const port = 10000 + (process.pid % 10000)
 
