@@ -98,7 +98,7 @@ import { Tier } from 'tier/client'
 // or
 const { Tier } = require('tier/client')
 // or, if using deno or CFW and you don't have import maps:
-import { Tier } from 'https://unpkg.com/tier@^4.1/dist/mjs/client.js'
+import { Tier } from 'https://unpkg.com/tier@^5/dist/mjs/client.js'
 
 const tier = new Tier({
   // Required: the base url to the running `tier serve` instance

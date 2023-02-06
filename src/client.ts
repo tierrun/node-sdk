@@ -858,13 +858,16 @@ export class Tier {
     body: TReq
   ): Promise<TRes> {
     const u = new URL(path, this.baseURL)
-    const res = await this.fetch(u.toString(), basicAuth(this.apiKey, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    }))
+    const res = await this.fetch(
+      u.toString(),
+      basicAuth(this.apiKey, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      })
+    )
     this.debugLog('POST', u.pathname, body)
     if (res.status < 200 || res.status > 299) {
       let responseData: any
@@ -1138,13 +1141,20 @@ export class Tier {
   /* c8 ignore stop */
 }
 
-const basicAuth = (key: string, settings: RequestInit = {}):RequestInit => {
+const basicAuth = (key: string, settings: RequestInit = {}): RequestInit => {
   if (!key) return settings
   return {
     ...settings,
     headers: {
       ...(settings.headers || {}),
-      authorization: `Basic ${Buffer.from(key + ':').toString('base64')}`,
+      authorization: `Basic ${base64(key + ':')}`,
     },
   }
 }
+
+/* c8 ignore start */
+const base64 = (s: string): string =>
+  typeof window !== 'undefined'
+    ? window.btoa(s)
+    : Buffer.from(s).toString('base64')
+/* c8 ignore stop */
