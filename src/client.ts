@@ -839,7 +839,9 @@ export class Tier {
     }
     this.debugLog('GET', u.toString())
     const { fetch } = this
+    /* c8 ignore start */
     const ctx = typeof window === 'undefined' ? globalThis : window
+    /* c8 ignore stop */
     const res = await fetch.call(ctx, u.toString(), basicAuth(this.apiKey))
     const text = await res.text()
     let responseData: any
@@ -861,7 +863,9 @@ export class Tier {
   ): Promise<TRes> {
     const u = new URL(path, this.baseURL)
     const { fetch } = this
+    /* c8 ignore start */
     const ctx = typeof window === 'undefined' ? globalThis : window
+    /* c8 ignore stop */
     const res = await fetch.call(
       ctx,
       u.toString(),
