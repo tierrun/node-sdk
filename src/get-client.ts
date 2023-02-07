@@ -28,26 +28,44 @@ if (typeof FETCH !== 'function') {
   })
 }
 
-const port = 10000 + (process.pid % 10000)
+// fill-in for browser bundlers
+/* c8 ignore start */
+const PROCESS = typeof process === 'undefined' ? {
+  pid: 1,
+  env: {
+    TIER_DEBUG: '',
+    NODE_DEBUG: '',
+    TIER_API_KEY: '',
+    TIER_BASE_URL: '',
+    TIER_LIVE: '',
+    STRIPE_DEBUG: '',
+  },
+  on: () => {},
+  removeListener: () => {},
+  kill: () => {},
+} : process
+/* c8 ignore start */
+
+const port = 10000 + (PROCESS.pid % 10000)
 let sidecarPID: number | undefined
 let initting: undefined | Promise<void>
 
 const debug =
-  process.env.TIER_DEBUG === '1' ||
-  /\btier\b/i.test(process.env.NODE_DEBUG || '')
+  PROCESS.env.TIER_DEBUG === '1' ||
+  /\btier\b/i.test(PROCESS.env.NODE_DEBUG || '')
 const debugLog = debug
   ? (...m: any[]) => console.error('tier:', ...m)
   : () => {}
 
 export const getClient = async (): Promise<Tier> => {
   await init()
-  const { TIER_BASE_URL } = process.env
+  const { TIER_BASE_URL } = PROCESS.env
   if (!TIER_BASE_URL) {
     throw new Error('failed sidecar initialization')
   }
   return new Tier({
     baseURL: TIER_BASE_URL,
-    apiKey: process.env.TIER_API_KEY,
+    apiKey: PROCESS.env.TIER_API_KEY,
     debug,
     fetchImpl: FETCH,
   })
@@ -75,7 +93,7 @@ export const init = async () => {
   }
   /* c8 ignore stop */
 
-  if (sidecarPID || process.env.TIER_BASE_URL) {
+  if (sidecarPID || PROCESS.env.TIER_BASE_URL) {
     return
   }
   if (initting) {
@@ -83,8 +101,8 @@ export const init = async () => {
   }
   initting = import(child_process)
     .then(({ spawn }) => {
-      const args = process.env.TIER_LIVE === '1' ? ['--live'] : []
-      const env = Object.fromEntries(Object.entries(process.env))
+      const args = PROCESS.env.TIER_LIVE === '1' ? ['--live'] : []
+      const env = Object.fromEntries(Object.entries(PROCESS.env))
       if (debug) {
         args.push('-v')
         env.STRIPE_DEBUG = '1'
@@ -110,12 +128,12 @@ export const init = async () => {
       proc.on('exit', () => {
         debugLog('sidecar closed', sidecarPID)
         sidecarPID = undefined
-        delete process.env.TIER_BASE_URL
-        process.removeListener('exit', exitHandler)
+        delete PROCESS.env.TIER_BASE_URL
+        PROCESS.removeListener('exit', exitHandler)
       })
-      process.on('exit', exitHandler)
+      PROCESS.on('exit', exitHandler)
       proc.unref()
-      process.env.TIER_BASE_URL = `http://127.0.0.1:${port}`
+      PROCESS.env.TIER_BASE_URL = `http://127.0.0.1:${port}`
       sidecarPID = proc.pid
       initting = undefined
     })
@@ -137,7 +155,7 @@ export const init = async () => {
 /* c8 ignore start */
 export const exitHandler = (_: number, signal: string | null) => {
   if (sidecarPID) {
-    process.kill(sidecarPID, signal || 'SIGTERM')
+    PROCESS.kill(sidecarPID, signal || 'SIGTERM')
   }
 }
 /* c8 ignore stop */
