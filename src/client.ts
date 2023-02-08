@@ -1151,14 +1151,21 @@ export class Tier {
 }
 
 const basicAuth = (key: string, settings: RequestInit = {}): RequestInit => {
-  if (!key) return settings
-  return {
-    ...settings,
-    headers: {
-      ...(settings.headers || {}),
-      authorization: `Basic ${base64(key + ':')}`,
-    },
-  }
+  return !key
+    ? {
+        ...settings,
+        credentials: 'include',
+        mode: 'cors',
+      }
+    : {
+        ...settings,
+        headers: {
+          ...(settings.headers || {}),
+          authorization: `Basic ${base64(key + ':')}`,
+        },
+        credentials: 'include',
+        mode: 'cors',
+      }
 }
 
 /* c8 ignore start */
