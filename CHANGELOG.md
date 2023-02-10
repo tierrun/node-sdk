@@ -1,5 +1,11 @@
 # change log
 
+## 5.1
+
+- Support added for making requests to the Tier API server using
+  CORS and browser credentials.
+- Added `onError` option to Tier client.
+
 ## 5.0
 
 - Add support for external Tier API server with Tier API Key
