@@ -26,7 +26,9 @@ running as a sidecar, using `tier serve`.
 
 ## USAGE
 
-Note: the Tier client is not designed to be used in web browsers.
+Note: support for using the Tier JavaScript client in web
+browsers is **EXPERIMENTAL**.  Whatever you do, please don't put
+your private Stripe keys where web browsers can see them.
 
 This module exports both a zero-dependency client class, suitable
 for use in non-Node.js environments such as edge workers and
