@@ -1,6 +1,8 @@
 import { createServer } from 'http'
+import { createServer as createNetServer } from 'net'
 import t from 'tap'
 
+import { default as NodeFetch } from 'node-fetch'
 import type { OrgInfo, PushResponse } from '../'
 import { Tier } from '../dist/cjs/client.js'
 
@@ -10,7 +12,6 @@ const date = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}Z$/
 // fake the init for these tests
 let initCalled = false
 let _onDemandClient: Tier | undefined = undefined
-import {default as NodeFetch} from 'node-fetch'
 
 const { default: tier } = t.mock('../', {
   '../dist/cjs/get-client.js': {
@@ -21,13 +22,14 @@ const { default: tier } = t.mock('../', {
       return (_onDemandClient = new Tier({
         baseURL,
         //@ts-ignore
-        fetchImpl: (globalThis.fetch || NodeFetch) as typeof fetch
+        fetchImpl: (globalThis.fetch || NodeFetch) as typeof fetch,
       }))
     },
   },
-})
+}) as typeof import('../')
+
 // un-mock this one.
-import {isTierError} from '../'
+import { isTierError, TierError } from '../'
 tier.isTierError = isTierError
 
 t.match(tier, {
@@ -879,6 +881,99 @@ t.test('weird error POST', t => {
         responseData: 'not json lol',
       }
     )
+    t.end()
+  })
+})
+
+t.test('API server that is completely broken', t => {
+  const server = createNetServer(socket => {
+    socket.end(`HTTP/1.1 200 Ok\r
+here: we go with http i promise
+
+just kidding here is a pigeon
+  __
+<( O)
+  ||
+  ||____/|
+  (  >  /
+   \___/
+     ||
+    _||_
+
+your welcome
+`)
+  })
+
+  server.listen(port, async () => {
+    try {
+      await tier.whoami()
+      t.fail('this should not work, pigeons are not API servers')
+    } catch (er) {
+      t.equal(isTierError(er), true)
+      t.match(
+        (er as TierError)?.cause,
+        Error,
+        'got an Error object as the cause'
+      )
+    }
+    try {
+      await tier.report('org:o', 'feature:f')
+      t.fail('this should not work, pigeons are not API servers')
+    } catch (er) {
+      t.equal(isTierError(er), true)
+      t.match(
+        (er as TierError)?.cause,
+        Error,
+        'got an Error object as the cause'
+      )
+    }
+    // now with onError
+    let onErrorsCalled = 0
+    const onError = (er: TierError) => {
+      onErrorsCalled ++
+      t.equal(isTierError(er), true)
+      t.match((er as TierError).cause, Error, 'got error object as cause')
+    }
+    const tc = new Tier({ baseURL: `http://localhost:${port}`, onError })
+    // should not throw now, onError catches it
+    await tc.whoami()
+    await tc.report('org:o', 'feature:f')
+    t.equal(onErrorsCalled, 2, 'caught two errors')
+    server.close()
+    t.end()
+  })
+})
+
+t.test('API server that hangs up right away', t => {
+  const server = createServer((_req, res) => {
+    res.setHeader('connection', 'close')
+    res.end()
+  })
+
+  server.listen(port, async () => {
+    try {
+      await tier.whoami()
+      t.fail('this should not work, pigeons are not API servers')
+    } catch (er) {
+      t.equal(isTierError(er), true)
+      t.match(
+        (er as TierError)?.cause,
+        Error,
+        'got an Error object as the cause'
+      )
+    }
+    try {
+      await tier.report('org:o', 'feature:f')
+      t.fail('this should not work, pigeons are not API servers')
+    } catch (er) {
+      t.equal(isTierError(er), true)
+      t.match(
+        (er as TierError)?.cause,
+        Error,
+        'got an Error object as the cause'
+      )
+    }
+    server.close()
     t.end()
   })
 })

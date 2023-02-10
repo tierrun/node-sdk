@@ -107,6 +107,15 @@ const tier = new Tier({
   // optional, defaults to '', set an API key to access the service
   apiKey: tierAPIKey,
 
+  // optional, if set will catch all API errors.
+  // Note that this makes the promises from API calls resolve,
+  // unless the onError function re-throws!  Use with caution!
+  //
+  // onError: (er: TierError) => {
+  //   console.error(er)
+  //   throw er
+  // }
+
   // Optional, only needed if fetch global is not available
   // fetchImpl: myFetchImplementation,
 
@@ -494,3 +503,5 @@ Tier encounters a problem fetching data.
   response was returned
 - `code`: response error code returned by the sidecar, if present
 - `responseData`: the raw HTTP body sent by the sidecar
+- `cause`: If triggered by an underlying system or JSON.parse
+  error, it will be provided here.

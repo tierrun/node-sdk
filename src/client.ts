@@ -736,12 +736,26 @@ export class TierError extends Error {
    */
   public responseData: any
 
-  constructor(path: string, reqBody: any, status: number, resBody: any) {
+  /**
+   * An underlying system error or other cause.
+   */
+  public cause?: Error
+
+  constructor(
+    path: string,
+    reqBody: any,
+    status: number,
+    resBody: any,
+    er?: any
+  ) {
     if (isErrorResponse(resBody)) {
       super(resBody.message)
       this.code = resBody.code
     } else {
       super('Tier request failed')
+    }
+    if (er && typeof er === 'object' && er instanceof Error) {
+      this.cause = er
     }
     this.path = path
     this.requestData = reqBody
@@ -777,10 +791,17 @@ export class Tier {
    * built-in `fetch` if available, otherwise `node-fetch` will be used.
    */
   readonly fetch: typeof fetch
+
   /**
    * The URL to the sidecar providing API endpoints
    */
   readonly baseURL: string
+
+  /**
+   * A method which is called on all errors, useful for logging,
+   * or handling 401 responses from a public tier API.
+   */
+  onError?: (er: TierError) => any
 
   /**
    * API key for use with the hosted service on tier.run
@@ -796,16 +817,19 @@ export class Tier {
     apiKey = '',
     fetchImpl = globalThis.fetch,
     debug = false,
+    onError,
   }: {
     baseURL: string
     apiKey?: string
     fetchImpl?: typeof fetch
     debug?: boolean
+    onError?: (er: TierError) => any
   }) {
     this.fetch = fetchImpl
     this.debug = !!debug
     this.baseURL = baseURL
     this.apiKey = apiKey
+    this.onError = onError
   }
 
   /* c8 ignore start */
@@ -842,19 +866,33 @@ export class Tier {
     /* c8 ignore start */
     const ctx = typeof window === 'undefined' ? globalThis : window
     /* c8 ignore stop */
-    const res = await fetch.call(ctx, u.toString(), basicAuth(this.apiKey))
-    const text = await res.text()
+    let res: Awaited<ReturnType<typeof fetch>>
+    let text: string
+    try {
+      res = await fetch.call(ctx, u.toString(), basicAuth(this.apiKey))
+      text = await res.text()
+    } catch (er) {
+      throw new TierError(path, query, 0, (er as Error).message, er)
+    }
     let responseData: any
     try {
       responseData = JSON.parse(text)
     } catch (er) {
-      responseData = text
-      throw new TierError(path, query, res.status, text)
+      responseData = text || (er as Error).message
+      throw new TierError(path, query, res.status, text, er)
     }
     if (res.status !== 200) {
       throw new TierError(path, query, res.status, responseData)
     }
     return responseData as T
+  }
+  private async tryGet<T>(
+    path: string,
+    query?: { [k: string]: string | string[] }
+  ): Promise<T> {
+    const p = this.apiGet<T>(path, query)
+    const onError = this.onError
+    return !onError ? p : p.catch(er => onError(er))
   }
 
   private async apiPost<TReq, TRes = {}>(
@@ -866,43 +904,60 @@ export class Tier {
     /* c8 ignore start */
     const ctx = typeof window === 'undefined' ? globalThis : window
     /* c8 ignore stop */
-    const res = await fetch.call(
-      ctx,
-      u.toString(),
-      basicAuth(this.apiKey, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      })
-    )
+
+    let res: Awaited<ReturnType<typeof fetch>>
+    let text: string
     this.debugLog('POST', u.pathname, body)
+    try {
+      res = await fetch.call(
+        ctx,
+        u.toString(),
+        basicAuth(this.apiKey, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        })
+      )
+      text = await res.text()
+    } catch (er) {
+      throw new TierError(path, body, 0, (er as Error).message, er)
+    }
+    let responseData: any
+    try {
+      responseData = JSON.parse(text)
+    } catch (er) {
+      responseData = text || (er as Error).message
+      throw new TierError(path, body, res.status, responseData, er)
+    }
     if (res.status < 200 || res.status > 299) {
-      let responseData: any
-      const text = await res.text()
-      try {
-        responseData = JSON.parse(text)
-      } catch (e) {
-        responseData = text
-      }
       throw new TierError(path, body, res.status, responseData)
     }
-    return (await res.json()) as TRes
+    return responseData as TRes
+  }
+
+  private async tryPost<TReq, TRes = {}>(
+    path: string,
+    body: TReq
+  ): Promise<TRes> {
+    const p = this.apiPost<TReq, TRes>(path, body)
+    const onError = this.onError
+    return !onError ? p : p.catch(er => onError(er))
   }
 
   /**
    * Look up the limits for all features for a given {@link OrgName}
    */
   async lookupLimits(org: OrgName): Promise<Limits> {
-    return await this.apiGet<Limits>('/v1/limits', { org })
+    return await this.tryGet<Limits>('/v1/limits', { org })
   }
 
   /**
    * Look up limits for a given {@link FeatureName} and {@link OrgName}
    */
   async lookupLimit(org: OrgName, feature: FeatureName): Promise<Usage> {
-    const limits = await this.apiGet<Limits>('/v1/limits', { org })
+    const limits = await this.tryGet<Limits>('/v1/limits', { org })
     for (const usage of limits.usage) {
       if (
         usage.feature === feature ||
@@ -932,7 +987,7 @@ export class Tier {
       req.at = at
     }
     req.clobber = !!clobber
-    return await this.apiPost<ReportRequest>('/v1/report', req)
+    return await this.tryPost<ReportRequest>('/v1/report', req)
   }
 
   /**
@@ -957,7 +1012,7 @@ export class Tier {
       cr.features = Array.isArray(features) ? features : [features]
       cr.trial_days = trialDays
     }
-    return await this.apiPost<CheckoutRequest, CheckoutResponse>(
+    return await this.tryPost<CheckoutRequest, CheckoutResponse>(
       '/v1/checkout',
       cr
     )
@@ -989,7 +1044,7 @@ export class Tier {
   public async cancel(org: OrgName) {
     const cp: CancelPhase = {}
     const sr: ScheduleRequest = { org, phases: [cp] }
-    return await this.apiPost<ScheduleRequest, ScheduleResponse>(
+    return await this.tryPost<ScheduleRequest, ScheduleResponse>(
       '/v1/subscribe',
       sr
     )
@@ -1005,7 +1060,7 @@ export class Tier {
     { info }: ScheduleParams = {}
   ) {
     const sr: ScheduleRequest = { org, phases, info }
-    return await this.apiPost<ScheduleRequest, ScheduleResponse>(
+    return await this.tryPost<ScheduleRequest, ScheduleResponse>(
       '/v1/subscribe',
       sr
     )
@@ -1017,7 +1072,7 @@ export class Tier {
    */
   public async updateOrg(org: OrgName, info: OrgInfo) {
     const sr: ScheduleRequest = { org, info }
-    return await this.apiPost<ScheduleRequest, ScheduleResponse>(
+    return await this.tryPost<ScheduleRequest, ScheduleResponse>(
       '/v1/subscribe',
       sr
     )
@@ -1028,7 +1083,7 @@ export class Tier {
    */
   public async whois(org: OrgName): Promise<WhoIsResponse> {
     // don't send back an `info:null`
-    const res = await this.apiGet<WhoIsResponse>('/v1/whois', { org })
+    const res = await this.tryGet<WhoIsResponse>('/v1/whois', { org })
     return {
       org: res.org,
       stripe_id: res.stripe_id,
@@ -1041,7 +1096,7 @@ export class Tier {
    * Look up all {@link OrgInfo} metadata about an org
    */
   public async lookupOrg(org: OrgName): Promise<LookupOrgResponse> {
-    return await this.apiGet<LookupOrgResponse>('/v1/whois', {
+    return await this.tryGet<LookupOrgResponse>('/v1/whois', {
       org,
       include: 'info',
     })
@@ -1051,7 +1106,7 @@ export class Tier {
    * Fetch the current phase for an org
    */
   public async lookupPhase(org: OrgName): Promise<CurrentPhase> {
-    const resp = await this.apiGet<CurrentPhaseResponse>('/v1/phase', { org })
+    const resp = await this.tryGet<CurrentPhaseResponse>('/v1/phase', { org })
     return {
       ...resp,
       effective: new Date(resp.effective),
@@ -1062,7 +1117,7 @@ export class Tier {
    * Pull the full {@link Model} pushed to Tier
    */
   public async pull(): Promise<Model> {
-    return this.apiGet<Model>('/v1/pull')
+    return this.tryGet<Model>('/v1/pull')
   }
 
   /**
@@ -1099,14 +1154,14 @@ export class Tier {
    * plans will be added.
    */
   public async push(model: Model): Promise<PushResponse> {
-    return await this.apiPost<Model, PushResponse>('/v1/push', model)
+    return await this.tryPost<Model, PushResponse>('/v1/push', model)
   }
 
   /**
    * Get information about the current sidecare API in use
    */
   public async whoami(): Promise<WhoAmIResponse> {
-    return await this.apiGet<WhoAmIResponse>('/v1/whoami')
+    return await this.tryGet<WhoAmIResponse>('/v1/whoami')
   }
 
   /**
