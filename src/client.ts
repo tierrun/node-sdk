@@ -1210,7 +1210,6 @@ const basicAuth = (key: string, settings: RequestInit = {}): RequestInit => {
     ? {
         ...settings,
         credentials: 'include',
-        mode: 'cors',
       }
     : {
         ...settings,
@@ -1219,7 +1218,6 @@ const basicAuth = (key: string, settings: RequestInit = {}): RequestInit => {
           authorization: `Basic ${base64(key + ':')}`,
         },
         credentials: 'include',
-        mode: 'cors',
       }
 }
 
