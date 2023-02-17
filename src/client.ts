@@ -837,7 +837,7 @@ export class Tier {
   /* c8 ignore stop */
   private set debug(d: boolean) {
     if (d) {
-      this.debugLog = (...m: any[]) => console.error('tier:', ...m)
+      this.debugLog = (...m: any[]) => console.info('tier:', ...m)
     } else {
       this.debugLog = (..._: any[]) => {}
     }

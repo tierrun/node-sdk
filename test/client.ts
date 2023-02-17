@@ -24,7 +24,7 @@ t.test('debuglog', t => {
     console.error = error
   })
   const logs: any[][] = []
-  console.error = (...m: any[]) => logs.push(m)
+  console.info = (...m: any[]) => logs.push(m)
   const apiKey = 'donotprintthisever'
   const tier = new Tier({
     baseURL: `http://localhost:${port}`,
