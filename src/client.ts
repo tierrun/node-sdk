@@ -268,7 +268,7 @@ export const isAggregate = (a: any): a is Aggregate =>
 export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
   hasOnly(f, 'base', 'tiers', 'mode', 'aggregate', 'title') &&
   optionalString(f.title) &&
-  optionalIs(f.base, isNonNegInt) &&
+  optionalIs(f.base, isNonNegNum) &&
   optionalIs(f.mode, isMode) &&
   optionalIsVArray(f.tiers, isFeatureTier) &&
   !(f.base !== undefined && f.tiers) &&
@@ -288,7 +288,7 @@ export const validateFeatureDefinition: (f: any) => void = (
     throw 'title not a string'
   }
   if (!optionalIs(f.base, isNonNegInt)) {
-    throw 'invalid base, must be non-negative integer'
+    throw 'invalid base, must be non-negative number'
   }
   if (!optionalIs(f.mode, isMode)) {
     throw 'invalid mode'

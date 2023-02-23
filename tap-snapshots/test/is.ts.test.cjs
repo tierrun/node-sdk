@@ -113,7 +113,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 19`] = `
 Array [
-  "invalid base, must be non-negative integer",
+  "invalid base, must be non-negative number",
   Object {
     "base": 1.2,
   },
@@ -167,7 +167,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 7`] = `
 Array [
-  "invalid base, must be non-negative integer",
+  "invalid base, must be non-negative number",
   Object {
     "base": 1.2,
   },
@@ -176,7 +176,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 8`] = `
 Array [
-  "invalid base, must be non-negative integer",
+  "invalid base, must be non-negative number",
   Object {
     "base": -1,
   },

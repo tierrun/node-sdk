@@ -184,7 +184,7 @@ t.test('isFeatureDefinition', t => {
     })
   )
   t.notOk(isFeatureDefinition({ base: -1 }))
-  t.notOk(isFeatureDefinition({ base: 1.2 }))
+  t.ok(isFeatureDefinition({ base: 1.2 }))
   t.ok(isFeatureDefinition({ base: 0 }))
 
   // cannot have base and tiers together
