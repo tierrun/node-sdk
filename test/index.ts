@@ -4,7 +4,7 @@ import t from 'tap'
 
 import { default as NodeFetch } from 'node-fetch'
 import type { OrgInfo, PushResponse } from '../'
-import { Tier } from '../dist/cjs/client.js'
+import { LookupOrgResponseJSON, OrgInfoJSON, Tier } from '../dist/cjs/client.js'
 
 const port = 10000 + (process.pid % 10000)
 const date = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}Z$/
@@ -930,7 +930,7 @@ your welcome
     // now with onError
     let onErrorsCalled = 0
     const onError = (er: TierError) => {
-      onErrorsCalled ++
+      onErrorsCalled++
       t.equal(isTierError(er), true)
       t.match((er as TierError).cause, Error, 'got error object as cause')
     }
@@ -979,13 +979,16 @@ t.test('API server that hangs up right away', t => {
 })
 
 t.test('updateOrg', t => {
-  const expect: OrgInfo = {
+  const expect: OrgInfoJSON = {
     email: 'x@y.com',
     name: 'Test User',
     description: '',
     phone: '+15558675309',
     metadata: {
       ok: 'true',
+    },
+    invoice_settings: {
+      default_payment_method: '',
     },
   }
   const response = {}
@@ -1003,28 +1006,135 @@ t.test('updateOrg', t => {
     })
   })
 
+  const request: OrgInfo = {
+    email: 'x@y.com',
+    name: 'Test User',
+    description: '',
+    phone: '+15558675309',
+    metadata: {
+      ok: 'true',
+    },
+    invoiceSettings: {
+      defaultPaymentMethod: '',
+    },
+  }
   server.listen(port, async () => {
-    const actual = await tier.updateOrg('org:o', expect)
+    const actual = await tier.updateOrg('org:o', request)
+    t.same(actual, response)
+    t.end()
+  })
+})
+
+t.test('updateOrg, no invoice settings sent', t => {
+  const expect: OrgInfoJSON = {
+    email: 'x@y.com',
+    name: 'Test User',
+    description: '',
+    phone: '+15558675309',
+    metadata: {
+      ok: 'true',
+    },
+    invoice_settings: {
+      default_payment_method: '',
+    },
+  }
+  const response = {}
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'POST')
+    t.equal(req.url, '/v1/subscribe')
+    const chunks: Buffer[] = []
+    req.on('data', c => chunks.push(c))
+    req.on('end', () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString())
+      t.same(body, { org: 'org:o', info: expect })
+      res.end(JSON.stringify(response))
+    })
+  })
+
+  const request: OrgInfo = {
+    email: 'x@y.com',
+    name: 'Test User',
+    description: '',
+    phone: '+15558675309',
+    metadata: {
+      ok: 'true',
+    },
+  }
+  server.listen(port, async () => {
+    const actual = await tier.updateOrg('org:o', request)
     t.same(actual, response)
     t.end()
   })
 })
 
 t.test('lookupOrg', t => {
+  const response: LookupOrgResponseJSON = {
+    org: 'org:o',
+    name: '',
+    description: '',
+    phone: '+15558675309',
+    metadata: {},
+    stripe_id: 'cust_1234',
+    email: 'x@y.com',
+    invoice_settings: {
+      default_payment_method: 'pm_card_FAKE',
+    },
+  }
   const server = createServer((req, res) => {
     res.setHeader('connection', 'close')
     server.close()
     t.equal(req.method, 'GET')
     t.equal(req.url, '/v1/whois?org=org%3Ao&include=info')
-    res.end(
-      JSON.stringify({ org: 'org:o', stripe_id: 'cust_1234', email: 'x@y.com' })
-    )
+    res.end(JSON.stringify(response))
   })
   server.listen(port, async () => {
     t.same(await tier.lookupOrg('org:o'), {
       org: 'org:o',
+      name: '',
+      description: '',
+      phone: '+15558675309',
+      metadata: {},
       stripe_id: 'cust_1234',
       email: 'x@y.com',
+      invoiceSettings: {
+        defaultPaymentMethod: 'pm_card_FAKE',
+      },
+    })
+    t.end()
+  })
+})
+
+t.test('lookupOrg, no payment method in response', t => {
+  const response = {
+    org: 'org:o',
+    name: '',
+    description: '',
+    phone: '+15558675309',
+    metadata: {},
+    stripe_id: 'cust_1234',
+    email: 'x@y.com',
+  }
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    server.close()
+    t.equal(req.method, 'GET')
+    t.equal(req.url, '/v1/whois?org=org%3Ao&include=info')
+    res.end(JSON.stringify(response))
+  })
+  server.listen(port, async () => {
+    t.same(await tier.lookupOrg('org:o'), {
+      org: 'org:o',
+      name: '',
+      description: '',
+      phone: '+15558675309',
+      metadata: {},
+      stripe_id: 'cust_1234',
+      email: 'x@y.com',
+      invoiceSettings: {
+        defaultPaymentMethod: '',
+      },
     })
     t.end()
   })
@@ -1071,6 +1181,38 @@ t.test('report', t => {
       }),
       { ok: true }
     )
+    t.end()
+  })
+})
+
+t.test('lookupPaymentMethods', t => {
+  const server = createServer((req, res) => {
+    res.setHeader('connection', 'close')
+    t.equal(req.method, 'GET')
+    const u = req.url
+    if (!u) {
+      throw new Error('did not get a request url??')
+    }
+    t.equal(u.startsWith('/v1/payment_methods?org=org%3A'), true)
+    res.end(
+      JSON.stringify({
+        org: 'org:' + u.substring(u.length - 1),
+        methods: u.endsWith('b') ? ['pm_card_FAKE'] : null,
+      })
+    )
+  })
+  t.teardown(() => {
+    server.close()
+  })
+  server.listen(port, async () => {
+    t.same(await tier.lookupPaymentMethods('org:o'), {
+      org: 'org:o',
+      methods: [],
+    })
+    t.same(await tier.lookupPaymentMethods('org:b'), {
+      org: 'org:b',
+      methods: ['pm_card_FAKE'],
+    })
     t.end()
   })
 })

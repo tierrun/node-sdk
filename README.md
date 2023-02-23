@@ -151,7 +151,7 @@ This Error subclass contains the following fields:
 
 ## API METHODS
 
-### `subscribe(org, plan, { info, trialDays })`
+### `subscribe(org, plan, { info, trialDays, paymentMethodID })`
 
 Subscribe an org to the specified plan effective immediately.
 
@@ -171,7 +171,10 @@ will be prepended with the same features, and the effective date
 will on the non-trial phase will be delayed until the end of the
 trial period.
 
-### `schedule(org, phases, { info })`
+If a string `paymentMethodID` is specified, then it will be used
+as the billing method for the subscription.
+
+### `schedule(org, phases, { info, paymentMethodID })`
 
 Create a subscription schedule phase for each of the sets of
 plans specified in the `phases` array.
@@ -192,7 +195,10 @@ have an effective date, and start immediately.
 If `info` is provided, it updates the org with info in the same
 way as calling `updateOrg(org, info)`.
 
-### `checkout(org, successUrl, { cancelUrl, features, trialDays })`
+If a string `paymentMethodID` is specified, then it will be used
+as the billing method for the subscription.
+
+### `checkout(org, successUrl, { cancelUrl, features, trialDays, requireBillingAddress })`
 
 Generate a Stripe Checkout flow, and return a `{ url }` object.
 Redirect the user to that `url` to have them complete the
@@ -213,6 +219,9 @@ Optional parameters:
 - `trialDays` Number of days to put the user on a "trial plan",
   where they are not charged for any usage. Only allowed when
   `features` is provided.
+- `requireBillingAddress` If set to `true`, then the user will be
+  required to add a billing address to complete the checkout
+  flow.
 
 ### `updateOrg(org, info)`
 
@@ -225,6 +234,9 @@ Update the specified org with the supplied information.
 - `description` string
 - `phone` string
 - `metadata` Object with any arbitrary keys and `string` values
+- `invoiceSettings` An object which may contain a
+  `defaultPaymentMethod` string.  If set, it will be attached as
+  the org's default invoice payment method.
 
 Note that any string fields that are missing will result in that
 data being removed from the org's Customer record in Stripe, as
@@ -339,7 +351,22 @@ Retrieve the Stripe Customer ID for an org.
 ### `lookupOrg(org)`
 
 Retrieve the full org info, with `stripe_id`, along with email,
-name, description, phone, and metadata.
+name, description, phone, metadata, and invoiceSettings.
+
+### `lookupPaymentMethods(org)`
+
+Return a `PaymentMethodsResponse` object, containing the org name
+and an array of their available payment method IDs.
+
+```json
+{
+  "org": "org:acme",
+  "methods": [ "pm_card_3h39ehaiweheawfhiawhfasi" ]
+}
+```
+
+If the org does not have any payment methods, then the returned
+object will contain an empty array.
 
 ### `whoami()`
 

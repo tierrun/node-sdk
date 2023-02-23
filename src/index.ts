@@ -12,6 +12,7 @@ import type {
   Model,
   OrgInfo,
   OrgName,
+  PaymentMethodsResponse,
   Phase,
   PushResponse,
   ReportParams,
@@ -206,6 +207,18 @@ export async function lookupOrg(org: OrgName): Promise<LookupOrgResponse> {
 }
 
 /**
+ * Look up all the Payment Methods available for a given {@link OrgName}
+ *
+ * Convenience wrapper for {@link client.Tier.lookupPaymentMethods | Tier.lookupPaymentMethods}
+ */
+export async function lookupPaymentMethods(
+  org: OrgName
+): Promise<PaymentMethodsResponse> {
+  const tier = await getClient()
+  return tier.lookupPaymentMethods(org)
+}
+
+/**
  * Get information about the current sidecare API in use
  *
  * Convenience wrapper for {@link client.Tier.whoami | Tier.whoami}
@@ -287,36 +300,37 @@ export async function phase(org: OrgName): Promise<CurrentPhase> {
 const TIER = {
   isErrorResponse,
   isFeatureName,
+  isFeatureNameVersioned,
   isFeatures,
   isOrgName,
   isPhase,
   isPlanName,
   isTierError,
   isVersionedFeatureName,
-  isFeatureNameVersioned,
-  validatePlan,
-  validateModel,
-  validateFeatureTier,
   validateFeatureDefinition,
+  validateFeatureTier,
+  validateModel,
+  validatePlan,
 
   Tier,
 
+  can,
+  cancel,
+  checkout,
   lookupLimit,
   lookupLimits,
+  lookupOrg,
+  lookupPaymentMethods,
   lookupPhase,
   pull,
   pullLatest,
   push,
   report,
-  can,
-  subscribe,
   schedule,
-  cancel,
-  checkout,
+  subscribe,
   updateOrg,
-  whois,
-  lookupOrg,
   whoami,
+  whois,
 
   limit,
   limits,

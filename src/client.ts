@@ -501,6 +501,7 @@ export interface CheckoutParams {
   cancelUrl?: string
   features?: Features | Features[]
   trialDays?: number
+  requireBillingAddress?: boolean
 }
 
 interface CheckoutRequest {
@@ -509,6 +510,7 @@ interface CheckoutRequest {
   features?: Features[]
   trial_days?: number
   cancel_url?: string
+  require_billing_address?: boolean
 }
 
 /**
@@ -522,7 +524,8 @@ export interface CheckoutResponse {
 interface ScheduleRequest {
   org: OrgName
   phases?: Phase[] | [CancelPhase]
-  info?: OrgInfo
+  info?: OrgInfoJSON
+  payment_method_id?: string
 }
 
 /**
@@ -537,6 +540,7 @@ export interface SubscribeParams {
   effective?: Date
   info?: OrgInfo
   trialDays?: number
+  paymentMethodID?: string
 }
 
 /**
@@ -544,6 +548,29 @@ export interface SubscribeParams {
  */
 export interface ScheduleParams {
   info?: OrgInfo
+  paymentMethodID?: string
+}
+
+interface PaymentMethodsResponseJSON {
+  org: string
+  methods: null | string[]
+}
+
+const paymentMethodsFromJSON = (
+  r: PaymentMethodsResponseJSON
+): PaymentMethodsResponse => {
+  return {
+    org: r.org,
+    methods: r.methods || [],
+  }
+}
+
+/**
+ * Response from the {@link Tier.lookupPaymentMethods} method
+ */
+export interface PaymentMethodsResponse {
+  org: string
+  methods: string[]
 }
 
 /**
@@ -571,6 +598,22 @@ export interface WhoIsResponse {
 }
 
 /**
+ * The object shape we send/receive from the API itself.
+ * Converted between this and OrgInfo when talking to the API,
+ * to avoid the excess of snake case.
+ */
+export interface OrgInfoJSON {
+  email: string
+  name: string
+  description: string
+  phone: string
+  invoice_settings: {
+    default_payment_method: string
+  }
+  metadata: { [key: string]: string }
+}
+
+/**
  * Object representing an org's billing metadata. Note that any fields
  * not set (other than `metadata`) will be reset to empty `''` values
  * on any update.
@@ -583,13 +626,43 @@ export interface OrgInfo {
   name: string
   description: string
   phone: string
+  invoiceSettings?: {
+    defaultPaymentMethod?: string
+  }
   metadata: { [key: string]: string }
+}
+
+const orgInfoToJSON = (o: OrgInfo): OrgInfoJSON => {
+  const { invoiceSettings, ...clean } = o
+  return {
+    ...clean,
+    invoice_settings: {
+      default_payment_method: invoiceSettings?.defaultPaymentMethod || '',
+    },
+  }
 }
 
 /**
  * Response from the {@link Tier.lookupOrg} method
  */
 export type LookupOrgResponse = WhoIsResponse & OrgInfo
+
+/**
+ * Raw JSON response from the lookupOrg API route
+ */
+export type LookupOrgResponseJSON = WhoIsResponse & OrgInfoJSON
+
+const lookupOrgResponseFromJSON = (
+  d: LookupOrgResponseJSON
+): LookupOrgResponse => {
+  const { invoice_settings, ...cleaned } = d
+  return {
+    ...cleaned,
+    invoiceSettings: {
+      defaultPaymentMethod: invoice_settings?.default_payment_method || '',
+    },
+  }
+}
 
 /**
  * Object indicating the success status of a given feature and plan
@@ -954,6 +1027,17 @@ export class Tier {
   }
 
   /**
+   * Look up the payment methods on file for a given {@link OrgName}
+   */
+  async lookupPaymentMethods(org: OrgName): Promise<PaymentMethodsResponse> {
+    return paymentMethodsFromJSON(
+      await this.tryGet<PaymentMethodsResponseJSON>('/v1/payment_methods', {
+        org,
+      })
+    )
+  }
+
+  /**
    * Look up limits for a given {@link FeatureName} and {@link OrgName}
    */
   async lookupLimit(org: OrgName, feature: FeatureName): Promise<Usage> {
@@ -1006,6 +1090,7 @@ export class Tier {
       org,
       success_url: successUrl,
       cancel_url: params.cancelUrl,
+      require_billing_address: params.requireBillingAddress,
     }
     const { features, trialDays } = params
     if (features) {
@@ -1029,12 +1114,12 @@ export class Tier {
   public async subscribe(
     org: OrgName,
     features: Features | Features[],
-    { effective, info, trialDays }: SubscribeParams = {}
+    { effective, info, trialDays, paymentMethodID }: SubscribeParams = {}
   ): Promise<ScheduleResponse> {
     return await this.schedule(
       org,
       featuresToPhases(features, { effective, trialDays }),
-      { info }
+      { info, paymentMethodID }
     )
   }
 
@@ -1057,9 +1142,14 @@ export class Tier {
   public async schedule(
     org: OrgName,
     phases?: Phase[],
-    { info }: ScheduleParams = {}
+    { info, paymentMethodID }: ScheduleParams = {}
   ) {
-    const sr: ScheduleRequest = { org, phases, info }
+    const sr: ScheduleRequest = {
+      org,
+      phases,
+      info: info ? orgInfoToJSON(info) : undefined,
+      payment_method_id: paymentMethodID,
+    }
     return await this.tryPost<ScheduleRequest, ScheduleResponse>(
       '/v1/subscribe',
       sr
@@ -1071,7 +1161,10 @@ export class Tier {
    * `metadata`) will be reset to empty `''` values on any update.
    */
   public async updateOrg(org: OrgName, info: OrgInfo) {
-    const sr: ScheduleRequest = { org, info }
+    const sr: ScheduleRequest = {
+      org,
+      info: orgInfoToJSON(info),
+    }
     return await this.tryPost<ScheduleRequest, ScheduleResponse>(
       '/v1/subscribe',
       sr
@@ -1082,12 +1175,7 @@ export class Tier {
    * Get an org's billing provider identifier
    */
   public async whois(org: OrgName): Promise<WhoIsResponse> {
-    // don't send back an `info:null`
-    const res = await this.tryGet<WhoIsResponse>('/v1/whois', { org })
-    return {
-      org: res.org,
-      stripe_id: res.stripe_id,
-    }
+    return await this.tryGet<WhoIsResponse>('/v1/whois', { org })
   }
 
   // note: same endpoint as whois, but when include=info is set, this hits
@@ -1096,10 +1184,12 @@ export class Tier {
    * Look up all {@link OrgInfo} metadata about an org
    */
   public async lookupOrg(org: OrgName): Promise<LookupOrgResponse> {
-    return await this.tryGet<LookupOrgResponse>('/v1/whois', {
-      org,
-      include: 'info',
-    })
+    return lookupOrgResponseFromJSON(
+      await this.tryGet<LookupOrgResponseJSON>('/v1/whois', {
+        org,
+        include: 'info',
+      })
+    )
   }
 
   /**
