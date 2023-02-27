@@ -1,9 +1,14 @@
 # change log
 
-## 5.2
+## 5.3
 
 - Add support for passing in an AbortSignal to cancel any
   requests on a given Tier client.
+
+## 5.2
+
+- Add paymentMethodID, invoiceSettings, lookupPaymentMethods,
+  requireBillingAddress
 
 ## 5.1
 
