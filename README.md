@@ -124,6 +124,9 @@ const tier = new Tier({
   // Optional, defaults to false, will make a lot of
   // console.error() calls.
   // debug: false
+
+  // Optional, can be used to terminate all actions by this client
+  // signal: myAbortSignal
 })
 ```
 

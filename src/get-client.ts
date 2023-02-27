@@ -15,7 +15,7 @@
 // This spawns a sidecar on localhost as needed, if baseURL is not set.
 
 import type { ChildProcess } from 'child_process'
-import { Tier } from './client.js'
+import { Tier, TierGetClientOptions, TierOptions } from './client.js'
 
 // just use node-fetch as a polyfill for old node environments
 let fetchPromise: Promise<void> | null = null
@@ -30,20 +30,23 @@ if (typeof FETCH !== 'function') {
 
 // fill-in for browser bundlers
 /* c8 ignore start */
-const PROCESS = typeof process === 'undefined' ? {
-  pid: 1,
-  env: {
-    TIER_DEBUG: '',
-    NODE_DEBUG: '',
-    TIER_API_KEY: '',
-    TIER_BASE_URL: '',
-    TIER_LIVE: '',
-    STRIPE_DEBUG: '',
-  },
-  on: () => {},
-  removeListener: () => {},
-  kill: () => {},
-} : process
+const PROCESS =
+  typeof process === 'undefined'
+    ? {
+        pid: 1,
+        env: {
+          TIER_DEBUG: '',
+          NODE_DEBUG: '',
+          TIER_API_KEY: '',
+          TIER_BASE_URL: '',
+          TIER_LIVE: '',
+          STRIPE_DEBUG: '',
+        },
+        on: () => {},
+        removeListener: () => {},
+        kill: () => {},
+      }
+    : process
 /* c8 ignore start */
 
 const port = 10000 + (PROCESS.pid % 10000)
@@ -57,18 +60,25 @@ const debugLog = debug
   ? (...m: any[]) => console.error('tier:', ...m)
   : () => {}
 
-export const getClient = async (): Promise<Tier> => {
+export const getClient = async (
+  clientOptions: TierGetClientOptions = {}
+): Promise<Tier> => {
   await init()
   const { TIER_BASE_URL } = PROCESS.env
-  if (!TIER_BASE_URL) {
+  if (!TIER_BASE_URL && !clientOptions.baseURL) {
     throw new Error('failed sidecar initialization')
   }
-  return new Tier({
-    baseURL: TIER_BASE_URL,
-    apiKey: PROCESS.env.TIER_API_KEY,
-    debug,
-    fetchImpl: FETCH,
-  })
+  return new Tier(
+    Object.assign(
+      {
+        baseURL: TIER_BASE_URL,
+        apiKey: PROCESS.env.TIER_API_KEY,
+        debug,
+        fetchImpl: FETCH,
+      },
+      clientOptions
+    ) as TierOptions
+  )
 }
 
 // evade clever bundlers that try to import child_process for the client

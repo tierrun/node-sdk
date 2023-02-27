@@ -19,6 +19,7 @@ import type {
   ScheduleParams,
   ScheduleResponse,
   SubscribeParams,
+  TierGetClientOptions,
   Usage,
   WhoAmIResponse,
   WhoIsResponse,
@@ -31,8 +32,10 @@ import type {
  *
  * Convenience wrapper for {@link client.Tier.pull | Tier.pull}
  */
-export async function pull(): Promise<Model> {
-  const tier = await getClient()
+export async function pull(
+  clientOptions?: TierGetClientOptions
+): Promise<Model> {
+  const tier = await getClient(clientOptions)
   return tier.pull()
 }
 
@@ -48,8 +51,10 @@ export async function pull(): Promise<Model> {
  *
  * Convenience wrapper for {@link client.Tier.pullLatest | Tier.pullLatest}
  */
-export async function pullLatest(): Promise<Model> {
-  const tier = await getClient()
+export async function pullLatest(
+  clientOptions?: TierGetClientOptions
+): Promise<Model> {
+  const tier = await getClient(clientOptions)
   return tier.pullLatest()
 }
 
@@ -58,8 +63,11 @@ export async function pullLatest(): Promise<Model> {
  *
  * Convenience wrapper for {@link client.Tier.lookupLimits | Tier.lookupLimits}
  */
-export async function lookupLimits(org: OrgName): Promise<Limits> {
-  const tier = await getClient()
+export async function lookupLimits(
+  org: OrgName,
+  clientOptions?: TierGetClientOptions
+): Promise<Limits> {
+  const tier = await getClient(clientOptions)
   return tier.lookupLimits(org)
 }
 
@@ -70,9 +78,10 @@ export async function lookupLimits(org: OrgName): Promise<Limits> {
  */
 export async function lookupLimit(
   org: OrgName,
-  feature: FeatureName
+  feature: FeatureName,
+  clientOptions?: TierGetClientOptions
 ): Promise<Usage> {
-  const tier = await getClient()
+  const tier = await getClient(clientOptions)
   return tier.lookupLimit(org, feature)
 }
 
@@ -85,9 +94,10 @@ export async function report(
   org: OrgName,
   feature: FeatureName,
   n: number = 1,
-  options?: ReportParams
+  options?: ReportParams,
+  clientOptions?: TierGetClientOptions
 ): Promise<{}> {
-  const tier = await getClient()
+  const tier = await getClient(clientOptions)
   return await tier.report(org, feature, n, options)
 }
 
@@ -97,8 +107,12 @@ export async function report(
  *
  * Convenience wrapper for {@link client.Tier.can | Tier.can}
  */
-export async function can(org: OrgName, feature: FeatureName): Promise<Answer> {
-  const tier = await getClient()
+export async function can(
+  org: OrgName,
+  feature: FeatureName,
+  clientOptions?: TierGetClientOptions
+): Promise<Answer> {
+  const tier = await getClient(clientOptions)
   return tier.can(org, feature)
 }
 
@@ -114,9 +128,10 @@ export async function can(org: OrgName, feature: FeatureName): Promise<Answer> {
 export async function checkout(
   org: OrgName,
   successUrl: string,
-  { cancelUrl, features, trialDays }: CheckoutParams = {}
+  { cancelUrl, features, trialDays }: CheckoutParams = {},
+  clientOptions?: TierGetClientOptions
 ): Promise<CheckoutResponse> {
-  const tier = await getClient()
+  const tier = await getClient(clientOptions)
   return await tier.checkout(org, successUrl, {
     cancelUrl,
     features,
@@ -137,9 +152,10 @@ export async function checkout(
 export async function subscribe(
   org: OrgName,
   features: Features | Features[],
-  { effective, info, trialDays }: SubscribeParams = {}
+  { effective, info, trialDays }: SubscribeParams = {},
+  clientOptions?: TierGetClientOptions
 ): Promise<ScheduleResponse> {
-  const tier = await getClient()
+  const tier = await getClient(clientOptions)
   return await tier.subscribe(org, features, {
     effective,
     info,
@@ -152,8 +168,11 @@ export async function subscribe(
  *
  * Convenience wrapper for {@link client.Tier.cancel | Tier.cancel}
  */
-export async function cancel(org: OrgName): Promise<ScheduleResponse> {
-  const tier = await getClient()
+export async function cancel(
+  org: OrgName,
+  clientOptions?: TierGetClientOptions
+): Promise<ScheduleResponse> {
+  const tier = await getClient(clientOptions)
   return await tier.cancel(org)
 }
 
@@ -166,9 +185,10 @@ export async function cancel(org: OrgName): Promise<ScheduleResponse> {
 export async function schedule(
   org: OrgName,
   phases?: Phase[],
-  { info }: ScheduleParams = {}
+  { info }: ScheduleParams = {},
+  clientOptions?: TierGetClientOptions
 ): Promise<ScheduleResponse> {
-  const tier = await getClient()
+  const tier = await getClient(clientOptions)
   return await tier.schedule(org, phases, { info })
 }
 

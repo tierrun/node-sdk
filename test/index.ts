@@ -10,26 +10,26 @@ const port = 10000 + (process.pid % 10000)
 const date = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}Z$/
 
 // fake the init for these tests
+// don't need to spin up a real sidecar in CI
 let initCalled = false
-let _onDemandClient: Tier | undefined = undefined
 
 const { default: tier } = t.mock('../', {
   '../dist/cjs/get-client.js': {
-    getClient: async (): Promise<Tier> => {
-      if (_onDemandClient) return _onDemandClient
+    getClient: async (clientOptions?: TierGetClientOptions): Promise<Tier> => {
       initCalled = true
       const baseURL = (process.env.TIER_BASE_URL = `http://localhost:${port}`)
-      return (_onDemandClient = new Tier({
+      return new Tier({
+        ...(clientOptions || {}),
         baseURL,
         //@ts-ignore
         fetchImpl: (globalThis.fetch || NodeFetch) as typeof fetch,
-      }))
+      })
     },
   },
 }) as typeof import('../')
 
 // un-mock this one.
-import { isTierError, TierError } from '../'
+import { isTierError, TierError, TierGetClientOptions } from '../'
 tier.isTierError = isTierError
 
 t.match(tier, {
@@ -1300,5 +1300,27 @@ t.test('can', t => {
     t.end()
   })
 })
+
+t.test(
+  'use abort signal',
+  { skip: typeof AbortSignal === 'undefined' && 'no AbortSignal' },
+  t => {
+    const ac = new AbortController()
+    const server = createServer((req, res) => {
+      res.setHeader('connection', 'close')
+      t.equal(req.method, 'GET')
+      t.equal(req.url, '/v1/limits?org=org%3Ao')
+      res.write('{"ok":')
+      ac.abort()
+      setTimeout(() => res.end('true}'), 100)
+    })
+    server.listen(port, async () => {
+      const signal = ac.signal
+      await t.rejects(tier.lookupLimits('org:o', { signal }))
+      server.close()
+      t.end()
+    })
+  }
+)
 
 t.test('called init', async () => t.equal(initCalled, true))

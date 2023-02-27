@@ -852,6 +852,27 @@ const versionIsNewer = (oldV: string | undefined, newV: string): boolean => {
 }
 
 /**
+ * Tier constructor options for cases where the baseURL is
+ * set by the environment.
+ */
+export interface TierGetClientOptions {
+  baseURL?: string
+  apiKey?: string
+  fetchImpl?: typeof fetch
+  debug?: boolean
+  onError?: (er: TierError) => any
+  signal?: AbortSignal
+}
+
+/**
+ * Options for the Tier constructor.  Same as {@link TierGetClientOptions},
+ * but baseURL is required.
+ */
+export interface TierOptions extends TierGetClientOptions {
+  baseURL: string
+}
+
+/**
  * The Tier client, main interface provided by the SDK.
  *
  * All methods are re-exported as top level functions by the main
@@ -882,6 +903,11 @@ export class Tier {
   readonly apiKey: string
 
   /**
+   * AbortSignal used to cancel all requests from this client.
+   */
+  signal?: AbortSignal
+
+  /**
    * Create a new Tier client.  Set `{ debug: true }` in the
    * options object to enable debugging output.
    */
@@ -891,18 +917,14 @@ export class Tier {
     fetchImpl = globalThis.fetch,
     debug = false,
     onError,
-  }: {
-    baseURL: string
-    apiKey?: string
-    fetchImpl?: typeof fetch
-    debug?: boolean
-    onError?: (er: TierError) => any
-  }) {
+    signal,
+  }: TierOptions) {
     this.fetch = fetchImpl
     this.debug = !!debug
     this.baseURL = baseURL
     this.apiKey = apiKey
     this.onError = onError
+    this.signal = signal
   }
 
   /* c8 ignore start */
@@ -942,7 +964,8 @@ export class Tier {
     let res: Awaited<ReturnType<typeof fetch>>
     let text: string
     try {
-      res = await fetch.call(ctx, u.toString(), basicAuth(this.apiKey))
+      const fo = basicAuth(this.apiKey, { signal: this.signal })
+      res = await fetch.call(ctx, u.toString(), fo)
       text = await res.text()
     } catch (er) {
       throw new TierError(path, query, 0, (er as Error).message, er)
@@ -991,6 +1014,7 @@ export class Tier {
             'content-type': 'application/json',
           },
           body: JSON.stringify(body),
+          signal: this.signal,
         })
       )
       text = await res.text()
@@ -1295,7 +1319,7 @@ export class Tier {
   /* c8 ignore stop */
 }
 
-const basicAuth = (key: string, settings: RequestInit = {}): RequestInit => {
+const basicAuth = (key: string, settings: RequestInit): RequestInit => {
   return !key
     ? {
         ...settings,

@@ -1,5 +1,10 @@
 # change log
 
+## 5.2
+
+- Add support for passing in an AbortSignal to cancel any
+  requests on a given Tier client.
+
 ## 5.1
 
 - Support added for making requests to the Tier API server using
