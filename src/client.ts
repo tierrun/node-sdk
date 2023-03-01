@@ -780,6 +780,57 @@ export class Answer {
 }
 
 /**
+ * Used for backoff in {@link awaitClockReady}
+ */
+class Backoff {
+  tier: Tier
+  maxDelay: number
+  maxTotalDelay: number
+  totalDelay: number = 0
+  count: number = 0
+  timer?: ReturnType<typeof setTimeout>
+  resolve?: () => void
+  timedOut: boolean = false
+  constructor(maxDelay: number, maxTotalDelay: number, tier: Tier) {
+    this.maxTotalDelay = maxTotalDelay
+    this.maxDelay = maxDelay
+    this.tier = tier
+    tier.signal?.addEventListener('abort', () => this.abort())
+  }
+  abort() {
+    const { timer, resolve } = this
+    this.resolve = undefined
+    this.timer = undefined
+    if (timer) clearTimeout(timer)
+    if (resolve) resolve()
+    this.count = 0
+  }
+  async backoff() {
+    // this max total delay is just a convenient safety measure,
+    // running tests for 30 seconds is entirely unreasonable.
+    /* c8 ignore start */
+    const rem = this.maxTotalDelay - this.totalDelay
+    if (rem <= 0 && !this.timedOut) {
+      this.timedOut = true
+      throw new Error('exceeded maximum backoff timeout')
+    }
+    if (this.timedOut || this.tier.signal?.aborted) {
+      return
+    }
+    /* c8 ignore stop */
+    this.count++
+    const delay =
+      Math.min(this.maxDelay, rem, Math.pow(this.count, 2) * 10) *
+      (Math.random() + 0.5)
+    this.totalDelay += delay
+    await new Promise<void>(res => {
+      this.resolve = res
+      this.timer = setTimeout(res, delay)
+    })
+  }
+}
+
+/**
  * Error subclass raised for any error returned by the API.
  * Should not be instantiated directly.
  */
@@ -851,6 +902,53 @@ const versionIsNewer = (oldV: string | undefined, newV: string): boolean => {
     : newV.localeCompare(oldV, 'en') > 0
 }
 
+interface ClockRequest {
+  id?: string
+  name?: string
+  present: Date | string
+}
+
+interface ClockResponseJSON {
+  id: string
+  link: string
+  present: string
+  status: string
+}
+
+export interface ClockResponse {
+  id: string
+  link: string
+  present: Date
+  status: string
+}
+
+const clockResponseFromJSON = (cr: ClockResponseJSON): ClockResponse => ({
+  ...cr,
+  present: new Date(cr.present),
+})
+
+/**
+ * Tier constructor options for cases where the baseURL is
+ * set by the environment.
+ */
+export interface TierGetClientOptions {
+  baseURL?: string
+  apiKey?: string
+  fetchImpl?: typeof fetch
+  debug?: boolean
+  onError?: (er: TierError) => any
+  signal?: AbortSignal
+}
+
+/**
+ * Options for the Tier constructor.  Same as {@link TierGetClientOptions},
+ * but baseURL is required.
+ */
+export interface TierOptions extends TierGetClientOptions {
+  baseURL: string
+  clockID?: string
+}
+
 /**
  * Tier constructor options for cases where the baseURL is
  * set by the environment.
@@ -908,6 +1006,11 @@ export class Tier {
   signal?: AbortSignal
 
   /**
+   * The ID of a stripe test clock.  Set via {@link withClock}
+   */
+  clockID?: string
+
+  /**
    * Create a new Tier client.  Set `{ debug: true }` in the
    * options object to enable debugging output.
    */
@@ -918,6 +1021,7 @@ export class Tier {
     debug = false,
     onError,
     signal,
+    clockID,
   }: TierOptions) {
     this.fetch = fetchImpl
     this.debug = !!debug
@@ -925,6 +1029,62 @@ export class Tier {
     this.apiKey = apiKey
     this.onError = onError
     this.signal = signal
+    this.clockID = clockID
+  }
+
+  // TODO: this mirrors the golang client implementation rather closely,
+  // but it would be better to create a subclass TierWithClock,
+  // so that rather than checking and rejecting, the methods just
+  // don't exist on the class where they aren't allowed.
+  async withClock(name: string, start: Date = new Date()): Promise<Tier> {
+    if (this.clockID) {
+      throw new TypeError('clock already set on client')
+    }
+    const c = await this.tryPost<ClockRequest, ClockResponse>('/v1/clock', {
+      name,
+      present: start,
+    })
+    return new Tier({
+      baseURL: this.baseURL,
+      apiKey: this.apiKey,
+      fetchImpl: this.fetch,
+      debug: this.debug,
+      onError: this.onError,
+      signal: this.signal,
+      clockID: c.id,
+    })
+  }
+
+  async advance(t: Date): Promise<void> {
+    if (!this.clockID) {
+      throw new TypeError('no clock set in client')
+    }
+    await this.tryPost<ClockRequest, ClockResponse>('/v1/clock', {
+      id: this.clockID,
+      present: t,
+    })
+    return this.awaitClockReady()
+  }
+
+  async awaitClockReady(): Promise<void> {
+    const bo = new Backoff(5000, 30000, this)
+    while (!this.signal?.aborted) {
+      const cr = await this.syncClock()
+      if (cr.status === 'ready') {
+        return
+      }
+      await bo.backoff()
+    }
+  }
+
+  async syncClock(): Promise<ClockResponse> {
+    const id = this.clockID
+    if (!id) {
+      throw new TypeError('no clock set in client')
+    }
+    return clockResponseFromJSON(
+      await this.tryGet<ClockResponseJSON>('/v1/clock', { id })
+    )
   }
 
   /* c8 ignore start */
@@ -964,7 +1124,7 @@ export class Tier {
     let res: Awaited<ReturnType<typeof fetch>>
     let text: string
     try {
-      const fo = basicAuth(this.apiKey, { signal: this.signal })
+      const fo = fetchOptions(this)
       res = await fetch.call(ctx, u.toString(), fo)
       text = await res.text()
     } catch (er) {
@@ -1008,13 +1168,12 @@ export class Tier {
       res = await fetch.call(
         ctx,
         u.toString(),
-        basicAuth(this.apiKey, {
+        fetchOptions(this, {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
           },
           body: JSON.stringify(body),
-          signal: this.signal,
         })
       )
       text = await res.text()
@@ -1319,22 +1478,25 @@ export class Tier {
   /* c8 ignore stop */
 }
 
-const basicAuth = (key: string, settings: RequestInit): RequestInit => {
-  return !key
-    ? {
-        ...settings,
-        credentials: 'include',
-        mode: 'cors',
-      }
-    : {
-        ...settings,
-        headers: {
-          ...(settings.headers || {}),
-          authorization: `Basic ${base64(key + ':')}`,
-        },
-        credentials: 'include',
-        mode: 'cors',
-      }
+const fetchOptions = (tier: Tier, settings: RequestInit = {}): RequestInit => {
+  const { apiKey, signal, clockID } = tier
+
+  const authHeader = apiKey
+    ? { authorization: `Basic ${base64(apiKey + ':')}` }
+    : {}
+
+  const clockHeader = clockID ? { 'tier-clock': clockID } : {}
+  return {
+    ...settings,
+    credentials: 'include',
+    mode: 'cors',
+    signal,
+    headers: {
+      ...(settings.headers || {}),
+      ...authHeader,
+      ...clockHeader,
+    } as HeadersInit,
+  }
 }
 
 /* c8 ignore start */

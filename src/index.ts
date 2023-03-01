@@ -272,6 +272,27 @@ export async function push(model: Model): Promise<PushResponse> {
 }
 
 /**
+ * Return a new Tier client that has a test clock
+ */
+export async function withClock(
+  name: string,
+  start: Date = new Date(),
+  options: TierGetClientOptions = {}
+): Promise<Tier> {
+  const tier = await getClient(options)
+  return tier.withClock(name, start)
+}
+
+/**
+ * Get a client with the settings from the environment
+ */
+export async function fromEnv(
+  options: TierGetClientOptions = {}
+): Promise<Tier> {
+  return getClient(options)
+}
+
+/**
  * @module client
  */
 import {
@@ -351,6 +372,9 @@ const TIER = {
   updateOrg,
   whoami,
   whois,
+
+  withClock,
+  fromEnv,
 
   limit,
   limits,

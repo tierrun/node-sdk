@@ -88,6 +88,14 @@ does not work with environments that do not have access to it. If
 `fetch` is not available, then the optional `node-fetch`
 dependency will be loaded as a polyfill.
 
+If you want a client instance that is automatically configured by
+the environment settings, with an on-demand started tier API
+sidecar, you can call:
+
+```ts
+const client = await tier.fromEnv()
+```
+
 ### Custom Client Custom Mode
 
 To use Tier in an environment where `child_process.spawn` is not
@@ -487,6 +495,30 @@ which either had errors or already existed. Note that a
 successful response from this method does not mean that _all_ of
 the features were created (since, for example, some may already
 exist), only that _some_ of them were.
+
+### `async withClock(name: string, present?: Date)`
+
+Create a test clock with the given name, and return a `Tier`
+client configured to use that clock.
+
+### `async syncClock()`
+
+Fetch the currently configured clock.
+
+Rejects if the client was not created by `tier.withClock()`.
+
+### `async advance(present: Date)`
+
+Advance the clock to the specified date.
+
+Rejects if the client was not created by `tier.withClock()`.
+
+### `async awaitClockReady()`
+
+Ping the server with exponential backoff until the configured
+clock returns a 'ready' status.
+
+Rejects if the client was not created by `tier.withClock()`.
 
 ### Class: `Answer`
 
