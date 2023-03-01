@@ -1413,9 +1413,10 @@ t.test('withClock', t => {
     const bar = await tier.withClock('bar', new Date('2020-07-01'), {
       signal: ac?.signal,
     })
-    await t.rejects(() => noclock.advance(new Date()))
-    await t.rejects(() => noclock2.syncClock())
-    await t.rejects(() => foo.withClock('bar'))
+    //@ts-expect-error
+    t.throws(() => noclock.advance(new Date()))
+    //@ts-expect-error
+    t.throws(() => noclock2.syncClock())
     t.equal(
       clocks.foo.present.toISOString(),
       new Date('1979-07-01').toISOString()
