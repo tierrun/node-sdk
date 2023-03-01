@@ -20,6 +20,7 @@ import type {
   ScheduleResponse,
   SubscribeParams,
   TierGetClientOptions,
+  TierWithClock,
   Usage,
   WhoAmIResponse,
   WhoIsResponse,
@@ -278,7 +279,7 @@ export async function withClock(
   name: string,
   start: Date = new Date(),
   options: TierGetClientOptions = {}
-): Promise<Tier> {
+): Promise<TierWithClock> {
   const tier = await getClient(options)
   return tier.withClock(name, start)
 }

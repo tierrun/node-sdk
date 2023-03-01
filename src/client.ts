@@ -856,6 +856,9 @@ class Backoff {
       this.timedOut = true
       throw new Error('exceeded maximum backoff timeout')
     }
+    // this part does get tested, but it's a race as to whether it
+    // ends up getting to this point, or aborting the fetch and
+    // throwing before ever calling backoff()
     if (this.timedOut || this.tier.signal?.aborted) {
       return
     }
@@ -988,7 +991,10 @@ export interface TierGetClientOptions {
  */
 export interface TierOptions extends TierGetClientOptions {
   baseURL: string
-  clockID?: string
+}
+
+export interface TierWithClockOptions extends TierOptions {
+  clockID: string
 }
 
 /**
@@ -1048,11 +1054,6 @@ export class Tier {
   signal?: AbortSignal
 
   /**
-   * The ID of a stripe test clock.  Set via {@link withClock}
-   */
-  clockID?: string
-
-  /**
    * Create a new Tier client.  Set `{ debug: true }` in the
    * options object to enable debugging output.
    */
@@ -1063,7 +1064,6 @@ export class Tier {
     debug = false,
     onError,
     signal,
-    clockID,
   }: TierOptions) {
     this.fetch = fetchImpl
     this.debug = !!debug
@@ -1071,22 +1071,17 @@ export class Tier {
     this.apiKey = apiKey
     this.onError = onError
     this.signal = signal
-    this.clockID = clockID
   }
 
-  // TODO: this mirrors the golang client implementation rather closely,
-  // but it would be better to create a subclass TierWithClock,
-  // so that rather than checking and rejecting, the methods just
-  // don't exist on the class where they aren't allowed.
-  async withClock(name: string, start: Date = new Date()): Promise<Tier> {
-    if (this.clockID) {
-      throw new TypeError('clock already set on client')
-    }
+  async withClock(
+    name: string,
+    start: Date = new Date()
+  ): Promise<TierWithClock> {
     const c = await this.tryPost<ClockRequest, ClockResponse>('/v1/clock', {
       name,
       present: start,
     })
-    return new Tier({
+    return new TierWithClock({
       baseURL: this.baseURL,
       apiKey: this.apiKey,
       fetchImpl: this.fetch,
@@ -1097,42 +1092,10 @@ export class Tier {
     })
   }
 
-  async advance(t: Date): Promise<void> {
-    if (!this.clockID) {
-      throw new TypeError('no clock set in client')
-    }
-    await this.tryPost<ClockRequest, ClockResponse>('/v1/clock', {
-      id: this.clockID,
-      present: t,
-    })
-    return this.awaitClockReady()
-  }
-
-  async awaitClockReady(): Promise<void> {
-    const bo = new Backoff(5000, 30000, this)
-    while (!this.signal?.aborted) {
-      const cr = await this.syncClock()
-      if (cr.status === 'ready') {
-        return
-      }
-      await bo.backoff()
-    }
-  }
-
-  async syncClock(): Promise<ClockResponse> {
-    const id = this.clockID
-    if (!id) {
-      throw new TypeError('no clock set in client')
-    }
-    return clockResponseFromJSON(
-      await this.tryGet<ClockResponseJSON>('/v1/clock', { id })
-    )
-  }
-
   /* c8 ignore start */
-  private debugLog(..._: any[]): void {}
+  protected debugLog(..._: any[]): void {}
   /* c8 ignore stop */
-  private set debug(d: boolean) {
+  protected set debug(d: boolean) {
     if (d) {
       this.debugLog = (...m: any[]) => console.info('tier:', ...m)
     } else {
@@ -1140,7 +1103,7 @@ export class Tier {
     }
   }
 
-  private async apiGet<T>(
+  protected async apiGet<T>(
     path: string,
     query?: { [k: string]: string | string[] }
   ): Promise<T> {
@@ -1184,7 +1147,7 @@ export class Tier {
     }
     return responseData as T
   }
-  private async tryGet<T>(
+  protected async tryGet<T>(
     path: string,
     query?: { [k: string]: string | string[] }
   ): Promise<T> {
@@ -1193,7 +1156,7 @@ export class Tier {
     return !onError ? p : p.catch(er => onError(er))
   }
 
-  private async apiPost<TReq, TRes = {}>(
+  protected async apiPost<TReq, TRes = {}>(
     path: string,
     body: TReq
   ): Promise<TRes> {
@@ -1235,7 +1198,7 @@ export class Tier {
     return responseData as TRes
   }
 
-  private async tryPost<TReq, TRes = {}>(
+  protected async tryPost<TReq, TRes = {}>(
     path: string,
     body: TReq
   ): Promise<TRes> {
@@ -1520,8 +1483,55 @@ export class Tier {
   /* c8 ignore stop */
 }
 
-const fetchOptions = (tier: Tier, settings: RequestInit = {}): RequestInit => {
-  const { apiKey, signal, clockID } = tier
+export class TierWithClock extends Tier {
+  /**
+   * The ID of a stripe test clock.  Set via {@link withClock}
+   */
+  clockID: string
+
+  constructor(options: TierWithClockOptions) {
+    super(options)
+    this.clockID = options.clockID
+    /* c8 ignore start */
+    if (!this.clockID) {
+      throw new TypeError('no clockID found in TierWithClock constructor')
+    }
+    /* c8 ignore stop */
+  }
+
+  async advance(t: Date): Promise<void> {
+    await this.tryPost<ClockRequest, ClockResponse>('/v1/clock', {
+      id: this.clockID,
+      present: t,
+    })
+    return this.awaitClockReady()
+  }
+
+  async awaitClockReady(): Promise<void> {
+    const bo = new Backoff(5000, 30000, this)
+    while (!this.signal?.aborted) {
+      const cr = await this.syncClock()
+      if (cr.status === 'ready') {
+        return
+      }
+      await bo.backoff()
+    }
+  }
+
+  async syncClock(): Promise<ClockResponse> {
+    const id = this.clockID
+    return clockResponseFromJSON(
+      await this.tryGet<ClockResponseJSON>('/v1/clock', { id })
+    )
+  }
+}
+
+const fetchOptions = (
+  tier: Tier | TierWithClock,
+  settings: RequestInit = {}
+): RequestInit => {
+  const { apiKey, signal } = tier
+  const clockID = tier instanceof TierWithClock ? tier.clockID : undefined
 
   const authHeader = apiKey
     ? { authorization: `Basic ${base64(apiKey + ':')}` }
