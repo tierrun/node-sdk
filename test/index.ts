@@ -1,10 +1,16 @@
+import { actualRequestUrl } from 'actual-request-url'
 import { createServer } from 'http'
 import { createServer as createNetServer } from 'net'
 import t from 'tap'
 
 import { default as NodeFetch } from 'node-fetch'
 import type { OrgInfo, PushResponse } from '../'
-import { LookupOrgResponseJSON, OrgInfoJSON, Tier } from '../dist/cjs/client.js'
+import {
+  ClockResponse,
+  LookupOrgResponseJSON,
+  OrgInfoJSON,
+  Tier,
+} from '../dist/cjs/client.js'
 
 const port = 10000 + (process.pid % 10000)
 const date = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}Z$/
@@ -54,6 +60,7 @@ t.match(tier, {
   lookupOrg: Function,
   updateOrg: Function,
   checkout: Function,
+  withClock: Function,
 })
 
 t.equal(initCalled, false, 'have not called init')
@@ -1322,5 +1329,122 @@ t.test(
     })
   }
 )
+
+t.test('withClock', t => {
+  const clocks: { [k: string]: ClockResponse } = {
+    foo: {
+      id: 'id-foo',
+      link: 'http://example.com/clock/foo',
+      present: new Date(),
+      status: 'not ready',
+    },
+    bar: {
+      id: 'id-bar',
+      link: 'http://example.com/clock/bar',
+      present: new Date(),
+      status: 'not ready',
+    },
+  }
+
+  t.teardown(() => {
+    server.close()
+  })
+  const server = createServer((req, res) => {
+    t.ok(req.url?.startsWith('/v1/clock'))
+    res.setHeader('connection', 'close')
+    const url = actualRequestUrl(req)
+    if (!url) throw new Error('could not discern url')
+    if (req.method === 'GET') {
+      const id = url.searchParams.get('id')
+      if (!id) throw new Error('did not send clockID in GET')
+      if (id !== 'id-foo' && id !== 'id-bar') {
+        throw new Error('unknown clockID: ' + id)
+      }
+      const clock = id === 'id-foo' ? clocks.foo : clocks.bar
+      clock.status =
+        clock.status === 'not ready'
+          ? 'waiting 1'
+          : clock.status === 'waiting 1'
+          ? 'waiting 2'
+          : clock.status === 'waiting 2'
+          ? 'waiting 3'
+          : 'ready'
+      res.end(JSON.stringify(clock))
+    } else if (req.method === 'POST') {
+      // either starting or syncing a clock
+      const b: Buffer[] = []
+      req.on('data', c => b.push(c))
+      req.on('end', () => {
+        const body = JSON.parse(Buffer.concat(b).toString())
+        t.type(body.present, 'string')
+        const p = new Date(body.present)
+        if (body.id) {
+          t.equal(body.id, req.headers['tier-clock'])
+          if (body.id !== 'id-foo' && body.id !== 'id-bar') {
+            throw new Error('unknown clockID: ' + body.id)
+          }
+          const clock = body.id === 'id-foo' ? clocks.foo : clocks.bar
+          clock.present = p
+          clock.status = 'not ready'
+          res.end(JSON.stringify(clock))
+        } else if (body.name) {
+          const name = body.name
+          if (name !== 'foo' && name !== 'bar') {
+            throw new Error('invalid clock name: ' + name)
+          }
+          const clock = clocks[name as 'foo' | 'bar']
+          clock.present = p
+          clock.status = 'not ready'
+          res.end(JSON.stringify(clock))
+        } else {
+          throw new Error('invalid post request: ' + JSON.stringify(body))
+        }
+      })
+    } else {
+      throw new Error('invalid request method: ' + req.method)
+    }
+  })
+
+  server.listen(port, async () => {
+    const ac = typeof AbortController !== 'undefined' ? new AbortController() : null
+    const noclock = await tier.fromEnv()
+    const noclock2 = await tier.fromEnv({ signal: ac?.signal })
+    const foo = await tier.withClock('foo', new Date('1979-07-01'))
+    const bar = await tier.withClock('bar', new Date('2020-07-01'), {
+      signal: ac?.signal,
+    })
+    await t.rejects(() => noclock.advance(new Date()))
+    await t.rejects(() => noclock2.syncClock())
+    await t.rejects(() => foo.withClock('bar'))
+    t.equal(
+      clocks.foo.present.toISOString(),
+      new Date('1979-07-01').toISOString()
+    )
+    t.equal(
+      clocks.bar.present.toISOString(),
+      new Date('2020-07-01').toISOString()
+    )
+    await foo.advance(new Date('2020-01-01'))
+    t.equal(
+      clocks.foo.present.toISOString(),
+      new Date('2020-01-01').toISOString()
+    )
+    await bar.advance(new Date('2025-02-03'))
+    t.equal(
+      clocks.bar.present.toISOString(),
+      new Date('2025-02-03').toISOString()
+    )
+    if (ac) {
+      const p = bar.advance(new Date('2038-12-12'))
+      ac.abort()
+      await t.rejects(p)
+      t.equal(
+        clocks.bar.present.toISOString(),
+        new Date('2025-02-03').toISOString()
+      )
+    }
+    t.end()
+  })
+})
 
 t.test('called init', async () => t.equal(initCalled, true))
