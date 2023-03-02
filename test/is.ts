@@ -178,6 +178,30 @@ t.test('isFeatureDefinition', t => {
   t.ok(isFeatureDefinition({ title: 'x', base: 1, aggregate: 'sum' }))
   t.ok(
     isFeatureDefinition({
+      base: 1,
+      divide: { by: 100 },
+    })
+  )
+  t.ok(
+    isFeatureDefinition({
+      base: 1,
+      divide: { by: 100, rounding: 'up' },
+    })
+  )
+  t.notOk(
+    isFeatureDefinition({
+      base: 1,
+      divide: { by: 100, rounding: 12 },
+    })
+  )
+  t.notOk(
+    isFeatureDefinition({
+      base: 1,
+      divide: { by: 100, rounding: 'down' },
+    })
+  )
+  t.ok(
+    isFeatureDefinition({
       title: 'x',
       mode: 'graduated',
       tiers: [{}],
@@ -216,6 +240,10 @@ t.test('validateFeatureDefinition', t => {
     null,
     true,
     {},
+    { base: 100, divide: { by: 100 } },
+    { base: 100, divide: { by: 100, rounding: 'up' } },
+    { base: 100, divide: { by: 100, rounding: 'circle' } },
+    { base: 100, divide: { rounding: 'circle' } },
     { tiers: [] },
     { title: 'x', base: 1, aggregate: 'sum' },
     { title: { not: 'a string' } },

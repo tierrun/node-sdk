@@ -243,6 +243,24 @@ export const isInterval = (i: any): i is Interval =>
   i === '@daily' || i === '@weekly' || i === '@monthly' || i === '@yearly'
 
 /**
+ * {@link FeatureDefinition} transforms.
+ */
+export interface Divide {
+  by?: number
+  rounding?: 'up'
+}
+
+/**
+ * Test whether a `divide` field is a valid transform config
+ */
+export const isDivide = (a: any): a is Divide =>
+  !!a &&
+  typeof a === 'object' &&
+  hasOnly(a, 'by', 'rounding') &&
+  optionalIs(a.by, isNonNegNum) &&
+  optionalIs(a.rounding, r => r === 'up')
+
+/**
  * The definition of a feature within a {@link Plan}.
  */
 export interface FeatureDefinition {
@@ -251,6 +269,7 @@ export interface FeatureDefinition {
   tiers?: FeatureTier[]
   mode?: Mode
   aggregate?: Aggregate
+  divide?: Divide
 }
 /**
  * Valid values for the `aggregate` field in a {@link FeatureDefinition}
@@ -266,13 +285,14 @@ export const isAggregate = (a: any): a is Aggregate =>
  * Test whether a value is a valid {@link FeatureDefinition}
  */
 export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
-  hasOnly(f, 'base', 'tiers', 'mode', 'aggregate', 'title') &&
+  hasOnly(f, 'base', 'tiers', 'mode', 'aggregate', 'title', 'divide') &&
   optionalString(f.title) &&
   optionalIs(f.base, isNonNegNum) &&
   optionalIs(f.mode, isMode) &&
   optionalIsVArray(f.tiers, isFeatureTier) &&
   !(f.base !== undefined && f.tiers) &&
-  optionalIs(f.aggregate, isAggregate)
+  optionalIs(f.aggregate, isAggregate) &&
+  optionalIs(f.divide, isDivide)
 /**
  * Asserts that a value is a valid {@link FeatureDefinition}
  *
@@ -312,13 +332,17 @@ export const validateFeatureDefinition: (f: any) => void = (
   if (!optionalIs(f.aggregate, isAggregate)) {
     throw 'invalid aggregate'
   }
+  if (!optionalIs(f.divide, isDivide)) {
+    throw 'invalid divide'
+  }
   const unexpected = unexpectedFields(
     f,
     'base',
     'tiers',
     'mode',
     'aggregate',
-    'title'
+    'title',
+    'divide'
   )
   if (unexpected.length) {
     throw `unexpected field(s): ${unexpected.join(', ')}`
