@@ -14,6 +14,26 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 10`] = `
 Array [
+  undefined,
+  Object {
+    "tiers": Array [],
+  },
+]
+`
+
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 11`] = `
+Array [
+  undefined,
+  Object {
+    "aggregate": "sum",
+    "base": 1,
+    "title": "x",
+  },
+]
+`
+
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 12`] = `
+Array [
   "title not a string",
   Object {
     "title": Object {
@@ -23,7 +43,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 11`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 13`] = `
 Array [
   "invalid base, must be non-negative number",
   Object {
@@ -32,7 +52,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 12`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 14`] = `
 Array [
   "invalid base, must be non-negative number",
   Object {
@@ -41,7 +61,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 13`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 15`] = `
 Array [
   undefined,
   Object {
@@ -50,7 +70,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 14`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 16`] = `
 Array [
   undefined,
   Object {
@@ -63,7 +83,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 15`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 17`] = `
 Array [
   "tiers and base cannot be set together",
   Object {
@@ -74,7 +94,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 16`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 18`] = `
 Array [
   "invalid mode",
   Object {
@@ -83,34 +103,11 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 17`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 19`] = `
 Array [
   "non-array tiers field",
   Object {
     "tiers": "tiers not an array",
-  },
-]
-`
-
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 18`] = `
-Array [
-  "tiers[0]: invalid base, must be non-negative integer",
-  Object {
-    "tiers": Array [
-      Object {
-        "base": "tier invalid",
-      },
-    ],
-  },
-]
-`
-
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 19`] = `
-Array [
-  "invalid aggregate",
-  Object {
-    "aggregate": "yolo",
-    "base": 123,
   },
 ]
 `
@@ -124,6 +121,29 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 20`] = `
 Array [
+  "tiers[0]: invalid base, must be non-negative integer",
+  Object {
+    "tiers": Array [
+      Object {
+        "base": "tier invalid",
+      },
+    ],
+  },
+]
+`
+
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 21`] = `
+Array [
+  "invalid aggregate",
+  Object {
+    "aggregate": "yolo",
+    "base": 123,
+  },
+]
+`
+
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 22`] = `
+Array [
   "unexpected field(s): heloo",
   Object {
     "heloo": "world",
@@ -131,7 +151,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 21`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 23`] = `
 Array [
   "non-array tiers field",
   Object {
@@ -142,7 +162,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 22`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 24`] = `
 Array [
   "tiers[1]: unexpected field(s): x",
   Object {
@@ -156,7 +176,7 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 23`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 25`] = `
 Array [
   "invalid base, must be non-negative number",
   Object {
@@ -174,6 +194,16 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 4`] = `
 Array [
+  "divide: not an object",
+  Object {
+    "base": 100,
+    "divide": true,
+  },
+]
+`
+
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 5`] = `
+Array [
   undefined,
   Object {
     "base": 100,
@@ -184,7 +214,19 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 5`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 6`] = `
+Array [
+  "divide: by must be a non-negative integer",
+  Object {
+    "base": 100,
+    "divide": Object {
+      "by": 100.123,
+    },
+  },
+]
+`
+
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 7`] = `
 Array [
   undefined,
   Object {
@@ -197,9 +239,9 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 6`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 8`] = `
 Array [
-  "invalid divide",
+  "divide: rounding must be \\"up\\" if set (\\"down\\" is default)",
   Object {
     "base": 100,
     "divide": Object {
@@ -210,34 +252,14 @@ Array [
 ]
 `
 
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 7`] = `
+exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 9`] = `
 Array [
-  "invalid divide",
+  "divide: rounding must be \\"up\\" if set (\\"down\\" is default)",
   Object {
     "base": 100,
     "divide": Object {
       "rounding": "circle",
     },
-  },
-]
-`
-
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 8`] = `
-Array [
-  undefined,
-  Object {
-    "tiers": Array [],
-  },
-]
-`
-
-exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 9`] = `
-Array [
-  undefined,
-  Object {
-    "aggregate": "sum",
-    "base": 1,
-    "title": "x",
   },
 ]
 `

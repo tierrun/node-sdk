@@ -257,8 +257,22 @@ export const isDivide = (a: any): a is Divide =>
   !!a &&
   typeof a === 'object' &&
   hasOnly(a, 'by', 'rounding') &&
-  optionalIs(a.by, isNonNegNum) &&
+  optionalIs(a.by, isNonNegInt) &&
   optionalIs(a.rounding, r => r === 'up')
+
+export const validateDivide: (a: any) => void = (
+  a: any
+): asserts a is Divide => {
+  if (!a || typeof a !== 'object') {
+    throw 'not an object'
+  }
+  if (!optionalIs(a.by, isNonNegInt)) {
+    throw 'by must be a non-negative integer'
+  }
+  if (!optionalIs(a.rounding, r => r === 'up')) {
+    throw 'rounding must be "up" if set ("down" is default)'
+  }
+}
 
 /**
  * The definition of a feature within a {@link Plan}.
@@ -332,8 +346,12 @@ export const validateFeatureDefinition: (f: any) => void = (
   if (!optionalIs(f.aggregate, isAggregate)) {
     throw 'invalid aggregate'
   }
-  if (!optionalIs(f.divide, isDivide)) {
-    throw 'invalid divide'
+  if (f.divide !== undefined) {
+    try {
+      validateDivide(f.divide)
+    } catch (er) {
+      throw `divide: ${er}`
+    }
   }
   const unexpected = unexpectedFields(
     f,

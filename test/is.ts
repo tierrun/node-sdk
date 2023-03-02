@@ -191,6 +191,18 @@ t.test('isFeatureDefinition', t => {
   t.notOk(
     isFeatureDefinition({
       base: 1,
+      divide: true,
+    })
+  )
+  t.notOk(
+    isFeatureDefinition({
+      base: 1,
+      divide: { by: 100.222, rounding: 'up' },
+    })
+  )
+  t.notOk(
+    isFeatureDefinition({
+      base: 1,
       divide: { by: 100, rounding: 12 },
     })
   )
@@ -240,7 +252,9 @@ t.test('validateFeatureDefinition', t => {
     null,
     true,
     {},
+    { base: 100, divide: true },
     { base: 100, divide: { by: 100 } },
+    { base: 100, divide: { by: 100.123 } },
     { base: 100, divide: { by: 100, rounding: 'up' } },
     { base: 100, divide: { by: 100, rounding: 'circle' } },
     { base: 100, divide: { rounding: 'circle' } },
