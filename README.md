@@ -27,7 +27,7 @@ running as a sidecar, using `tier serve`.
 ## USAGE
 
 Note: support for using the Tier JavaScript client in web
-browsers is **EXPERIMENTAL**.  Whatever you do, please don't put
+browsers is **EXPERIMENTAL**. Whatever you do, please don't put
 your private Stripe keys where web browsers can see them.
 
 This module exports both a zero-dependency client class, suitable
@@ -238,7 +238,7 @@ Update the specified org with the supplied information.
 - `phone` string
 - `metadata` Object with any arbitrary keys and `string` values
 - `invoiceSettings` An object which may contain a
-  `defaultPaymentMethod` string.  If set, it will be attached as
+  `defaultPaymentMethod` string. If set, it will be attached as
   the org's default invoice payment method.
 
 Note that any string fields that are missing will result in that
@@ -364,7 +364,7 @@ and an array of their available payment method IDs.
 ```json
 {
   "org": "org:acme",
-  "methods": [ "pm_card_3h39ehaiweheawfhiawhfasi" ]
+  "methods": ["pm_card_3h39ehaiweheawfhiawhfasi"]
 }
 ```
 

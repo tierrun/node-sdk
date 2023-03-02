@@ -9,7 +9,7 @@ if (!globalThis.fetch) globalThis.fetch = NodeFetch
 //@ts-ignore
 const f = globalThis.fetch
 //@ts-ignore
-globalThis.fetch = function(...args) {
+globalThis.fetch = function (...args) {
   if (this && this !== globalThis) {
     throw new Error('can only call fetch() on globalThis')
   }
