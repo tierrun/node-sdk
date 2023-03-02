@@ -5,12 +5,7 @@ import t from 'tap'
 
 import { default as NodeFetch } from 'node-fetch'
 import type { OrgInfo, PushResponse } from '../'
-import {
-  ClockResponse,
-  LookupOrgResponseJSON,
-  OrgInfoJSON,
-  Tier,
-} from '../dist/cjs/client.js'
+import { LookupOrgResponseJSON, OrgInfoJSON, Tier } from '../dist/cjs/client.js'
 
 const port = 10000 + (process.pid % 10000)
 const date = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}Z$/
@@ -1331,6 +1326,12 @@ t.test(
 )
 
 t.test('withClock', t => {
+  interface ClockResponse {
+    id: string
+    link: string
+    present: Date
+    status: string
+  }
   const clocks: { [k: string]: ClockResponse } = {
     foo: {
       id: 'id-foo',
@@ -1406,7 +1407,8 @@ t.test('withClock', t => {
   })
 
   server.listen(port, async () => {
-    const ac = typeof AbortController !== 'undefined' ? new AbortController() : null
+    const ac =
+      typeof AbortController !== 'undefined' ? new AbortController() : null
     const noclock = await tier.fromEnv()
     const noclock2 = await tier.fromEnv({ signal: ac?.signal })
     const foo = await tier.withClock('foo', new Date('1979-07-01'))
@@ -1416,7 +1418,7 @@ t.test('withClock', t => {
     //@ts-expect-error
     t.throws(() => noclock.advance(new Date()))
     //@ts-expect-error
-    t.throws(() => noclock2.syncClock())
+    t.throws(() => noclock2.advance(new Date()))
     t.equal(
       clocks.foo.present.toISOString(),
       new Date('1979-07-01').toISOString()

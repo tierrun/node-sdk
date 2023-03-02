@@ -822,10 +822,10 @@ export class Answer {
 }
 
 /**
- * Used for backoff in {@link awaitClockReady}
+ * Used for backoff in {@link advance | TierWithClock.advance}
  */
 class Backoff {
-  tier: Tier
+  signal?: AbortSignal
   maxDelay: number
   maxTotalDelay: number
   totalDelay: number = 0
@@ -833,11 +833,15 @@ class Backoff {
   timer?: ReturnType<typeof setTimeout>
   resolve?: () => void
   timedOut: boolean = false
-  constructor(maxDelay: number, maxTotalDelay: number, tier: Tier) {
+  constructor(
+    maxDelay: number,
+    maxTotalDelay: number,
+    { signal }: { signal?: AbortSignal }
+  ) {
     this.maxTotalDelay = maxTotalDelay
     this.maxDelay = maxDelay
-    this.tier = tier
-    tier.signal?.addEventListener('abort', () => this.abort())
+    this.signal = signal
+    signal?.addEventListener('abort', () => this.abort())
   }
   abort() {
     const { timer, resolve } = this
@@ -859,14 +863,16 @@ class Backoff {
     // this part does get tested, but it's a race as to whether it
     // ends up getting to this point, or aborting the fetch and
     // throwing before ever calling backoff()
-    if (this.timedOut || this.tier.signal?.aborted) {
+    if (this.timedOut || this.signal?.aborted) {
       return
     }
     /* c8 ignore stop */
     this.count++
-    const delay =
-      Math.min(this.maxDelay, rem, Math.pow(this.count, 2) * 10) *
-      (Math.random() + 0.5)
+    const delay = Math.min(
+      this.maxDelay,
+      rem,
+      Math.pow(this.count, 2) * 10 * (Math.random() + 0.5)
+    )
     this.totalDelay += delay
     await new Promise<void>(res => {
       this.resolve = res
@@ -953,24 +959,12 @@ interface ClockRequest {
   present: Date | string
 }
 
-interface ClockResponseJSON {
+interface ClockResponse {
   id: string
   link: string
   present: string
   status: string
 }
-
-export interface ClockResponse {
-  id: string
-  link: string
-  present: Date
-  status: string
-}
-
-const clockResponseFromJSON = (cr: ClockResponseJSON): ClockResponse => ({
-  ...cr,
-  present: new Date(cr.present),
-})
 
 /**
  * Tier constructor options for cases where the baseURL is
@@ -1504,13 +1498,13 @@ export class TierWithClock extends Tier {
       id: this.clockID,
       present: t,
     })
-    return this.awaitClockReady()
+    await this.#awaitClockReady()
   }
 
-  async awaitClockReady(): Promise<void> {
-    const bo = new Backoff(5000, 30000, this)
+  async #awaitClockReady(): Promise<void> {
+    const bo = new Backoff(5000, 30000, { signal: this.signal })
     while (!this.signal?.aborted) {
-      const cr = await this.syncClock()
+      const cr = await this.#syncClock()
       if (cr.status === 'ready') {
         return
       }
@@ -1518,11 +1512,9 @@ export class TierWithClock extends Tier {
     }
   }
 
-  async syncClock(): Promise<ClockResponse> {
+  async #syncClock(): Promise<ClockResponse> {
     const id = this.clockID
-    return clockResponseFromJSON(
-      await this.tryGet<ClockResponseJSON>('/v1/clock', { id })
-    )
+    return await this.tryGet<ClockResponse>('/v1/clock', { id })
   }
 }
 

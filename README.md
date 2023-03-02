@@ -501,22 +501,9 @@ exist), only that _some_ of them were.
 Create a test clock with the given name, and return a `Tier`
 client configured to use that clock.
 
-### `async syncClock()`
-
-Fetch the currently configured clock.
-
-Rejects if the client was not created by `tier.withClock()`.
-
 ### `async advance(present: Date)`
 
 Advance the clock to the specified date.
-
-Rejects if the client was not created by `tier.withClock()`.
-
-### `async awaitClockReady()`
-
-Ping the server with exponential backoff until the configured
-clock returns a 'ready' status.
 
 Rejects if the client was not created by `tier.withClock()`.
 
