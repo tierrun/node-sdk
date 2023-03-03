@@ -432,14 +432,20 @@ export const isFeatures = (f: any): f is Features =>
  */
 export interface CurrentPhase {
   effective: Date
-  features: FeatureNameVersioned[]
-  plans: PlanName[]
+  end?: Date
+  features?: FeatureNameVersioned[]
+  plans?: PlanName[]
+  fragments?: FeatureNameVersioned[]
+  trial: boolean
 }
 
 export interface CurrentPhaseResponse {
   effective: string
-  features: FeatureNameVersioned[]
-  plans: PlanName[]
+  end?: string
+  features?: FeatureNameVersioned[]
+  plans?: PlanName[]
+  fragments?: FeatureNameVersioned[]
+  trial?: boolean
 }
 
 /**

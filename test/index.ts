@@ -220,27 +220,49 @@ t.test('pullLatest', t => {
 })
 
 t.test('lookupPhase', t => {
+  t.teardown(() => {
+    server.close()
+  })
   const server = createServer((req, res) => {
     res.setHeader('connection', 'close')
-    server.close()
     t.equal(req.method, 'GET')
-    t.equal(req.url, '/v1/phase?org=org%3Ao')
-    res.end(
-      JSON.stringify({
-        effective: '2022-10-13T16:52:11-07:00',
-        features: [
-          'feature:storage@plan:free@1',
-          'feature:transfer@plan:free@1',
-        ],
-        plans: ['plan:free@1'],
-      })
-    )
+    if (!req.url) throw new Error('no url on req')
+    t.equal(req.url.startsWith('/v1/phase?org=org%3A'), true)
+    const phase = req.url.endsWith('o')
+      ? {
+          effective: '2022-10-13T16:52:11-07:00',
+          features: [
+            'feature:storage@plan:free@1',
+            'feature:transfer@plan:free@1',
+          ],
+          plans: ['plan:free@1'],
+        }
+      : {
+          effective: '2022-10-13T16:52:11-07:00',
+          end: '2025-01-01T00:00:00.000Z',
+          features: [
+            'feature:storage@plan:free@1',
+            'feature:transfer@plan:free@1',
+          ],
+          plans: ['plan:free@1'],
+          trial: true,
+        }
+    res.end(JSON.stringify(phase))
   })
   server.listen(port, async () => {
     t.same(await tier.lookupPhase('org:o'), {
       effective: new Date('2022-10-13T16:52:11-07:00'),
+      end: undefined,
       features: ['feature:storage@plan:free@1', 'feature:transfer@plan:free@1'],
       plans: ['plan:free@1'],
+      trial: false,
+    })
+    t.same(await tier.lookupPhase('org:p'), {
+      effective: new Date('2022-10-13T16:52:11-07:00'),
+      end: new Date('2025-01-01T00:00:00.000Z'),
+      features: ['feature:storage@plan:free@1', 'feature:transfer@plan:free@1'],
+      plans: ['plan:free@1'],
+      trial: true,
     })
     t.end()
   })

@@ -10,12 +10,12 @@ import { Backoff } from './backoff.js'
 import { isTierError, TierError } from './tier-error.js'
 
 import {
-  ClockRequest,
-  ClockResponse,
   CancelPhase,
   CheckoutParams,
   CheckoutRequest,
   CheckoutResponse,
+  ClockRequest,
+  ClockResponse,
   CurrentPhase,
   CurrentPhaseResponse,
   FeatureName,
@@ -610,9 +610,12 @@ export class Tier {
    */
   public async lookupPhase(org: OrgName): Promise<CurrentPhase> {
     const resp = await this.tryGet<CurrentPhaseResponse>('/v1/phase', { org })
+    const end = resp.end !== undefined ? new Date(resp.end) : resp.end
     return {
       ...resp,
       effective: new Date(resp.effective),
+      end,
+      trial: !!resp.trial,
     }
   }
 
