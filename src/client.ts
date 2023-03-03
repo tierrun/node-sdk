@@ -1,38 +1,170 @@
+/**
+ * @module client
+ */
+
 // just the client bits, assuming that the sidecar is already
 // initialized and running somewhere.
 
-/**
- * The name of an organization, used to uniquely reference a
- * customer account within Tier. Any unique string identifier,
- * prefixed with 'org:'
- */
-export type OrgName = `org:${string}`
+import { Answer } from './answer.js'
+import { Backoff } from './backoff.js'
+import { isTierError, TierError } from './tier-error.js'
 
-/**
- * Test whether a value is a valid {@link OrgName}
- */
-export const isOrgName = (o: any): o is OrgName =>
-  typeof o === 'string' && o.startsWith('org:') && o !== 'org:'
+import {
+  ClockRequest,
+  ClockResponse,
+  CancelPhase,
+  CheckoutParams,
+  CheckoutRequest,
+  CheckoutResponse,
+  CurrentPhase,
+  CurrentPhaseResponse,
+  FeatureName,
+  Features,
+  Limits,
+  LookupOrgResponse,
+  LookupOrgResponseJSON,
+  Model,
+  OrgInfo,
+  OrgInfoJSON,
+  OrgName,
+  PaymentMethodsResponse,
+  PaymentMethodsResponseJSON,
+  Phase,
+  Plan,
+  PlanName,
+  PushResponse,
+  ReportParams,
+  ReportRequest,
+  ReportResponse,
+  ScheduleParams,
+  ScheduleRequest,
+  ScheduleResponse,
+  SubscribeParams,
+  Usage,
+  WhoAmIResponse,
+  WhoIsResponse,
+} from './tier-types.js'
 
-/**
- * The name of a feature within Tier.  Can be any string
- * containing ASCII alphanumeric characters and ':'
- */
-export type FeatureName = `feature:${string}`
+/* c8 ignore start */
+export { Answer } from './answer.js'
+export { isErrorResponse, isTierError, TierError } from './tier-error.js'
+export {
+  isAggregate,
+  isDivide,
+  isFeatureDefinition,
+  isFeatureName,
+  isFeatureNameVersioned,
+  isFeatures,
+  isFeatureTier,
+  isInterval,
+  isMode,
+  isModel,
+  isOrgName,
+  isPhase,
+  isPlan,
+  isPlanName,
+  validateDivide,
+  validateFeatureDefinition,
+  validateFeatureTier,
+  validateModel,
+  validatePlan,
+} from './tier-types.js'
+export type {
+  CancelPhase,
+  CheckoutParams,
+  CheckoutResponse,
+  CurrentPhase,
+  CurrentPhaseResponse,
+  FeatureName,
+  Features,
+  Limits,
+  LookupOrgResponse,
+  Model,
+  OrgInfo,
+  OrgName,
+  PaymentMethodsResponse,
+  Phase,
+  Plan,
+  PlanName,
+  PushResponse,
+  ReportParams,
+  ReportResponse,
+  ScheduleParams,
+  ScheduleResponse,
+  SubscribeParams,
+  Usage,
+  WhoAmIResponse,
+  WhoIsResponse,
+} from './tier-types.js'
+/* c8 ignore stop */
 
-/**
- * Test whether a value is a valid {@link FeatureName}
- */
-export const isFeatureName = (f: any): f is FeatureName =>
-  typeof f === 'string' && /^feature:[a-zA-Z0-9:]+$/.test(f)
+let warnedPullLatest = false
+const warnPullLatest = () => {
+  if (warnedPullLatest) return
+  warnedPullLatest = true
+  emitWarning(
+    'pullLatest is deprecated, and will be removed in the next version',
+    'DeprecationWarning',
+    '',
+    Tier.prototype.pullLatest
+  )
+}
+const warnedDeprecated = new Set<string>()
+const warnDeprecated = (n: string, instead: string) => {
+  if (warnedDeprecated.has(n)) return
+  warnedDeprecated.add(n)
+  emitWarning(
+    `Tier.${n} is deprecated. Please use Tier.${instead} instead.`,
+    'DeprecationWarning',
+    '',
+    Tier.prototype[n as keyof Tier] as () => {}
+  )
+}
+const emitWarning = (
+  msg: string,
+  warningType: string,
+  code: string,
+  fn: (...a: any[]) => any
+) => {
+  typeof process === 'object' &&
+  process &&
+  typeof process.emitWarning === 'function'
+    ? process.emitWarning(msg, warningType, code, fn)
+    : /* c8 ignore start */
+      console.error(msg)
+  /* c8 ignore stop */
+}
 
-/**
- * A Tier pricing model, as would be stored within a `pricing.json`
- * file, or created on <https://model.tier.run/>
- */
-export interface Model {
-  plans: {
-    [p: PlanName]: Plan
+// turn an orginfo object into a suitable json request
+const orgInfoToJSON = (o: OrgInfo): OrgInfoJSON => {
+  const { invoiceSettings, ...clean } = o
+  return {
+    ...clean,
+    invoice_settings: {
+      default_payment_method: invoiceSettings?.defaultPaymentMethod || '',
+    },
+  }
+}
+
+// turn the json from a lookup org response into humane form
+const lookupOrgResponseFromJSON = (
+  d: LookupOrgResponseJSON
+): LookupOrgResponse => {
+  const { invoice_settings, ...cleaned } = d
+  return {
+    ...cleaned,
+    invoiceSettings: {
+      defaultPaymentMethod: invoice_settings?.default_payment_method || '',
+    },
+  }
+}
+
+const paymentMethodsFromJSON = (
+  r: PaymentMethodsResponseJSON
+): PaymentMethodsResponse => {
+  return {
+    org: r.org,
+    methods: r.methods || [],
   }
 }
 
@@ -71,874 +203,7 @@ const featuresToPhases = (
   return phases
 }
 
-// just keeping the double-negative in one place, since I so often
-// type this wrong and get annoyed.
-const isVArray = (arr: any, valTest: (v: any) => boolean) =>
-  Array.isArray(arr) && !arr.some(v => !valTest(v))
-
-const isObj = (c: any): c is { [k: string]: any } =>
-  !!c && typeof c === 'object'
-
-const optionalType = (c: any, t: string): boolean =>
-  c === undefined || typeof c === t
-
-const optionalString = (c: any): c is string | undefined =>
-  optionalType(c, 'string')
-
-const optionalKV = (
-  c: any,
-  keyTest: (k: string) => boolean,
-  valTest: (v: any) => boolean
-): boolean => c === undefined || isKV(c, keyTest, valTest)
-
-const optionalIs = (c: any, test: (c: any) => boolean) =>
-  c === undefined || test(c)
-
-const optionalIsVArray = (c: any, valTest: (v: any) => boolean) =>
-  c === undefined || isVArray(c, valTest)
-
-const isKV = (
-  obj: any,
-  keyTest: (k: string) => boolean,
-  valTest: (v: any) => boolean
-): boolean =>
-  isObj(obj) &&
-  isVArray(Object.keys(obj), keyTest) &&
-  isVArray(Object.values(obj), valTest)
-
-const unexpectedFields = (
-  obj: { [k: string]: any },
-  ...keys: string[]
-): string[] => {
-  const expect = new Set<string>(keys)
-  return Object.keys(obj).filter(k => !expect.has(k))
-}
-
-const hasOnly = (obj: any, ...keys: string[]): boolean => {
-  if (!isObj(obj)) {
-    return false
-  }
-  const expect = new Set<string>(keys)
-  for (const k of Object.keys(obj)) {
-    if (!expect.has(k)) {
-      return false
-    }
-  }
-  return true
-}
-
-/**
- * Test whether a value is a valid {@link Model}
- */
-export const isModel = (m: any): m is Model =>
-  hasOnly(m, 'plans') && isKV(m.plans, isPlanName, isPlan)
-
-/**
- * Asserts that a value is a valid {@link Model}
- *
- * If it is not, then a string is thrown indicating the problem.
- */
-export const validateModel = (m: any): asserts m is Model => {
-  if (!isObj(m)) {
-    throw 'not an object'
-  }
-  if (!isObj(m.plans)) {
-    throw 'missing or invalid plans, must be object'
-  }
-  for (const [pn, plan] of Object.entries(m.plans)) {
-    if (!isPlanName(pn)) {
-      throw `invalid plan name: ${pn}`
-    }
-    try {
-      validatePlan(plan as any)
-    } catch (er) {
-      throw `plans['${pn}']: ${er}`
-    }
-  }
-  const unexpected = unexpectedFields(m, 'plans')
-  if (unexpected.length !== 0) {
-    throw `unexpected field(s): ${unexpected.join(', ')}`
-  }
-}
-
-/**
- * The definition of a plan within a {@link Model}.
- */
-export interface Plan {
-  title?: string
-  features?: {
-    [f: FeatureName]: FeatureDefinition
-  }
-  currency?: string
-  interval?: Interval
-}
-
-const isCurrency = (c: any): c is Plan['currency'] =>
-  typeof c === 'string' && c.length === 3 && c === c.toLowerCase()
-
-/**
- * Test whether a value is a valid {@link Plan}
- */
-export const isPlan = (p: any): p is Plan =>
-  isObj(p) &&
-  hasOnly(p, 'title', 'currency', 'interval', 'features') &&
-  optionalString(p.title) &&
-  optionalKV(p.features, isFeatureName, isFeatureDefinition) &&
-  optionalIs(p.currency, isCurrency) &&
-  optionalIs(p.interval, isInterval)
-
-/**
- * Asserts that a value is a valid {@link Plan}
- *
- * If not, throws a string indicating the source of the problem.
- */
-export const validatePlan: (p: any) => void = (p: any): asserts p is Plan => {
-  if (!isObj(p)) {
-    throw 'not an object'
-  }
-  if (p.title !== undefined && typeof p.title !== 'string') {
-    throw 'invalid title, must be string'
-  }
-  if (p.features !== undefined) {
-    if (!isObj(p.features)) {
-      throw 'invalid features field, must be object'
-    }
-    for (const [fn, fdef] of Object.entries(p.features)) {
-      if (!isFeatureName(fn)) {
-        throw `invalid feature name: ${fn}`
-      }
-      try {
-        validateFeatureDefinition(fdef)
-      } catch (er) {
-        throw `features['${fn}']: ${er}`
-      }
-    }
-  }
-  if (!optionalIs(p.currency, isCurrency)) {
-    throw `invalid currency: ${p.currency}`
-  }
-  if (!optionalIs(p.interval, isInterval)) {
-    throw `invalid interval: ${p.interval}`
-  }
-  const unexpected = unexpectedFields(
-    p,
-    'title',
-    'currency',
-    'interval',
-    'features'
-  )
-  if (unexpected.length !== 0) {
-    throw `unexpected field(s): ${unexpected.join(', ')}`
-  }
-}
-
-/**
- * Valid values for the `interval` field in a {@link FeatureDefinition}
- */
-export type Interval = '@daily' | '@weekly' | '@monthly' | '@yearly'
-/**
- * Test whether a value is a valid {@link Interval}
- */
-export const isInterval = (i: any): i is Interval =>
-  i === '@daily' || i === '@weekly' || i === '@monthly' || i === '@yearly'
-
-/**
- * {@link FeatureDefinition} transforms.
- */
-export interface Divide {
-  by?: number
-  rounding?: 'up'
-}
-
-/**
- * Test whether a `divide` field is a valid transform config
- */
-export const isDivide = (a: any): a is Divide =>
-  !!a &&
-  typeof a === 'object' &&
-  hasOnly(a, 'by', 'rounding') &&
-  optionalIs(a.by, isNonNegInt) &&
-  optionalIs(a.rounding, r => r === 'up')
-
-export const validateDivide: (a: any) => void = (
-  a: any
-): asserts a is Divide => {
-  if (!a || typeof a !== 'object') {
-    throw 'not an object'
-  }
-  if (!optionalIs(a.by, isNonNegInt)) {
-    throw 'by must be a non-negative integer'
-  }
-  if (!optionalIs(a.rounding, r => r === 'up')) {
-    throw 'rounding must be "up" if set ("down" is default)'
-  }
-}
-
-/**
- * The definition of a feature within a {@link Plan}.
- */
-export interface FeatureDefinition {
-  title?: string
-  base?: number
-  tiers?: FeatureTier[]
-  mode?: Mode
-  aggregate?: Aggregate
-  divide?: Divide
-}
-/**
- * Valid values for the `aggregate` field in a {@link FeatureDefinition}
- */
-export type Aggregate = 'sum' | 'max' | 'last' | 'perpetual'
-/**
- * Test whether a value is a valid {@link Aggregate}
- */
-export const isAggregate = (a: any): a is Aggregate =>
-  a === 'sum' || a === 'max' || a === 'last' || a === 'perpetual'
-
-/**
- * Test whether a value is a valid {@link FeatureDefinition}
- */
-export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
-  hasOnly(f, 'base', 'tiers', 'mode', 'aggregate', 'title', 'divide') &&
-  optionalString(f.title) &&
-  optionalIs(f.base, isNonNegNum) &&
-  optionalIs(f.mode, isMode) &&
-  optionalIsVArray(f.tiers, isFeatureTier) &&
-  !(f.base !== undefined && f.tiers) &&
-  optionalIs(f.aggregate, isAggregate) &&
-  optionalIs(f.divide, isDivide)
-/**
- * Asserts that a value is a valid {@link FeatureDefinition}
- *
- * If not, a string is thrown indicating the source of the problem.
- */
-export const validateFeatureDefinition: (f: any) => void = (
-  f: any
-): asserts f is FeatureDefinition => {
-  if (!isObj(f)) {
-    throw 'not an object'
-  }
-  if (!optionalString(f.title)) {
-    throw 'title not a string'
-  }
-  if (!optionalIs(f.base, isNonNegInt)) {
-    throw 'invalid base, must be non-negative number'
-  }
-  if (!optionalIs(f.mode, isMode)) {
-    throw 'invalid mode'
-  }
-  if (f.tiers && f.base !== undefined) {
-    throw 'tiers and base cannot be set together'
-  }
-  // unroll this so we can show the tier that failed
-  if (f.tiers !== undefined) {
-    if (!Array.isArray(f.tiers)) {
-      throw 'non-array tiers field'
-    }
-    f.tiers.forEach((t: FeatureTier, i: number) => {
-      try {
-        validateFeatureTier(t)
-      } catch (er) {
-        throw `tiers[${i}]: ${er}`
-      }
-    })
-  }
-  if (!optionalIs(f.aggregate, isAggregate)) {
-    throw 'invalid aggregate'
-  }
-  if (f.divide !== undefined) {
-    try {
-      validateDivide(f.divide)
-    } catch (er) {
-      throw `divide: ${er}`
-    }
-  }
-  const unexpected = unexpectedFields(
-    f,
-    'base',
-    'tiers',
-    'mode',
-    'aggregate',
-    'title',
-    'divide'
-  )
-  if (unexpected.length) {
-    throw `unexpected field(s): ${unexpected.join(', ')}`
-  }
-}
-
-/**
- * Valid values for the `mode` field in a {@link FeatureDefinition}
- */
-export type Mode = 'graduated' | 'volume'
-/**
- * Test whether a value is a valiid {@link Mode}
- */
-export const isMode = (m: any): m is Mode => m === 'graduated' || m === 'volume'
-
-/**
- * Entry in the {@link FeatureDefinition} `tier` array
- */
-export interface FeatureTier {
-  upto?: number
-  price?: number
-  base?: number
-}
-
-const isPosInt = (n: any): boolean => Number.isInteger(n) && n > 0
-const isNonNegInt = (n: any): boolean => Number.isInteger(n) && n >= 0
-const isNonNegNum = (n: any): boolean =>
-  typeof n === 'number' && isFinite(n) && n >= 0
-
-/**
- * Test whether a value is a valid {@link FeatureTier}
- */
-export const isFeatureTier = (t: any): t is FeatureTier =>
-  hasOnly(t, 'upto', 'price', 'base') &&
-  optionalIs(t.upto, isPosInt) &&
-  optionalIs(t.price, isNonNegNum) &&
-  optionalIs(t.base, isNonNegInt)
-
-/**
- * Validate that a value is a valid {@link FeatureTier}
- *
- * If not, a string is thrown indicating the source of the problem.
- */
-export const validateFeatureTier: (t: any) => void = (
-  t: any
-): asserts t is FeatureTier => {
-  if (!isObj(t)) {
-    throw 'not an object'
-  }
-  if (!optionalIs(t.upto, isPosInt)) {
-    throw 'invalid upto, must be integer greater than 0'
-  }
-  if (!optionalIs(t.price, isNonNegNum)) {
-    throw 'invalid price, must be non-negative number'
-  }
-  if (!optionalIs(t.base, isNonNegInt)) {
-    throw 'invalid base, must be non-negative integer'
-  }
-  const unexpected = unexpectedFields(t, 'base', 'price', 'upto')
-  if (unexpected.length !== 0) {
-    throw `unexpected field(s): ${unexpected.join(', ')}`
-  }
-}
-
-/**
- * Object representing some amount of feature consumption.
- */
-export interface Usage {
-  feature: FeatureName
-  used: number
-  limit: number
-}
-
-/**
- * The set of {@link Usage} values for each feature that an
- * org has access to.
- */
-export interface Limits {
-  org: OrgName
-  usage: Usage[]
-}
-
-/**
- * A {@link Plan} identifier.  Format is `plan:<name>@<version>`.
- * Name can contain any ASCII alphanumeric characters and `:`.
- * Version can contain any ASCII alphanumeric characters.
- */
-export type PlanName = `plan:${string}@${string}`
-/**
- * An identifier for a feature as defined within a given plan.
- * Format is `<feature>@<plan>` where `feature` is a {@link FeatureName}
- * and `plan` is a {@link PlanName}.
- *
- * FeatureNameVersioned and {@link PlanName} strings may be used
- * equivalently to specify prices and entitlements to Tier methods.
- */
-export type FeatureNameVersioned = `${FeatureName}@${PlanName}`
-/**
- * alias for {@link FeatureNameVersioned}
- * @deprecated
- */
-export type VersionedFeatureName = FeatureNameVersioned
-/**
- * Either a {@link PlanName} or {@link FeatureNameVersioned}
- *
- * The type of values that may be used to specify prices and entitlements.
- */
-export type Features = PlanName | FeatureNameVersioned
-
-/**
- * Test whether a value is a valid {@link PlanName}
- */
-export const isPlanName = (p: any): p is PlanName =>
-  typeof p === 'string' && /^plan:[a-zA-Z0-9:]+@[a-zA-Z0-9]+$/.test(p)
-
-/**
- * Test whether a value is a valid {@link FeatureNameVersioned}
- */
-export const isFeatureNameVersioned = (f: any): f is FeatureNameVersioned =>
-  typeof f === 'string' &&
-  /^feature:[a-zA-Z0-9:]+@plan:[a-zA-Z0-9:]+@[a-zA-Z0-9]+$/.test(f)
-/**
- * @deprecated alias for {@link isFeatureNameVersioned}
- */
-export const isVersionedFeatureName = isFeatureNameVersioned
-
-/**
- * Test whether a value is a valid {@link Features}
- */
-export const isFeatures = (f: any): f is Features =>
-  isPlanName(f) || isFeatureNameVersioned(f)
-
-/**
- * Object representing the current phase in an org's subscription schedule
- */
-export interface CurrentPhase {
-  effective: Date
-  features: FeatureNameVersioned[]
-  plans: PlanName[]
-}
-
-interface CurrentPhaseResponse {
-  effective: string
-  features: FeatureNameVersioned[]
-  plans: PlanName[]
-}
-
-/**
- * Object representing a phase in an org's subscription schedule, for
- * creating new schedules via `tier.schedule()`.
- */
-export interface Phase {
-  effective?: Date
-  features: Features[]
-  plans?: PlanName[]
-  trial?: boolean
-}
-
-/**
- * Special empty {@link Phase} object that has no features, indicating
- * that the org's plan should be terminated.
- */
-export interface CancelPhase {}
-
-const isDate = (d: any): d is Date => isObj(d) && d instanceof Date
-
-/**
- * Test whether a value is a valid {@link Phase}
- */
-export const isPhase = (p: any): p is Phase =>
-  isObj(p) &&
-  optionalIs(p.effective, isDate) &&
-  optionalType(p.trial, 'boolean') &&
-  isVArray(p.features, isFeatures)
-
-/**
- * Options for the {@link Tier.checkout} method
- */
-export interface CheckoutParams {
-  cancelUrl?: string
-  features?: Features | Features[]
-  trialDays?: number
-  requireBillingAddress?: boolean
-}
-
-interface CheckoutRequest {
-  org: OrgName
-  success_url: string
-  features?: Features[]
-  trial_days?: number
-  cancel_url?: string
-  require_billing_address?: boolean
-}
-
-/**
- * Response from the {@link Tier.checkout} method, indicating the url
- * that the user must visit to complete the checkout process.
- */
-export interface CheckoutResponse {
-  url: string
-}
-
-interface ScheduleRequest {
-  org: OrgName
-  phases?: Phase[] | [CancelPhase]
-  info?: OrgInfoJSON
-  payment_method_id?: string
-}
-
-/**
- * Response from the methods that use the `/v1/subscribe` endpoint.
- */
-export interface ScheduleResponse {}
-
-/**
- * Options for the {@link Tier.subscribe} method
- */
-export interface SubscribeParams {
-  effective?: Date
-  info?: OrgInfo
-  trialDays?: number
-  paymentMethodID?: string
-}
-
-/**
- * Options for the {@link Tier.schedule} method
- */
-export interface ScheduleParams {
-  info?: OrgInfo
-  paymentMethodID?: string
-}
-
-interface PaymentMethodsResponseJSON {
-  org: string
-  methods: null | string[]
-}
-
-const paymentMethodsFromJSON = (
-  r: PaymentMethodsResponseJSON
-): PaymentMethodsResponse => {
-  return {
-    org: r.org,
-    methods: r.methods || [],
-  }
-}
-
-/**
- * Response from the {@link Tier.lookupPaymentMethods} method
- */
-export interface PaymentMethodsResponse {
-  org: string
-  methods: string[]
-}
-
-/**
- * Options for the {@link Tier.report} and {@link Answer.report} methods
- */
-export interface ReportParams {
-  at?: Date
-  clobber?: boolean
-}
-
-interface ReportRequest {
-  org: OrgName
-  feature: FeatureName
-  n?: number
-  at?: Date
-  clobber?: boolean
-}
-
-/**
- * Response from the {@link Tier.whois} method
- */
-export interface WhoIsResponse {
-  org: OrgName
-  stripe_id: string
-}
-
-/**
- * The object shape we send/receive from the API itself.
- * Converted between this and OrgInfo when talking to the API,
- * to avoid the excess of snake case.
- */
-export interface OrgInfoJSON {
-  email: string
-  name: string
-  description: string
-  phone: string
-  invoice_settings: {
-    default_payment_method: string
-  }
-  metadata: { [key: string]: string }
-}
-
-/**
- * Object representing an org's billing metadata. Note that any fields
- * not set (other than `metadata`) will be reset to empty `''` values
- * on any update.
- *
- * Used by {@link Tier.lookupOrg}, {@link Tier.schedule}, and
- * {@link Tier.subscribe} methods.
- */
-export interface OrgInfo {
-  email: string
-  name: string
-  description: string
-  phone: string
-  invoiceSettings?: {
-    defaultPaymentMethod?: string
-  }
-  metadata: { [key: string]: string }
-}
-
-const orgInfoToJSON = (o: OrgInfo): OrgInfoJSON => {
-  const { invoiceSettings, ...clean } = o
-  return {
-    ...clean,
-    invoice_settings: {
-      default_payment_method: invoiceSettings?.defaultPaymentMethod || '',
-    },
-  }
-}
-
-/**
- * Response from the {@link Tier.lookupOrg} method
- */
-export type LookupOrgResponse = WhoIsResponse & OrgInfo
-
-/**
- * Raw JSON response from the lookupOrg API route
- */
-export type LookupOrgResponseJSON = WhoIsResponse & OrgInfoJSON
-
-const lookupOrgResponseFromJSON = (
-  d: LookupOrgResponseJSON
-): LookupOrgResponse => {
-  const { invoice_settings, ...cleaned } = d
-  return {
-    ...cleaned,
-    invoiceSettings: {
-      defaultPaymentMethod: invoice_settings?.default_payment_method || '',
-    },
-  }
-}
-
-/**
- * Object indicating the success status of a given feature and plan
- * when using {@link Tier.push}
- */
-export interface PushResult {
-  feature: FeatureNameVersioned
-  status: string
-  reason: string
-}
-
-/**
- * Response from the {@link Tier.push} method
- */
-export interface PushResponse {
-  results?: PushResult[]
-}
-
-/**
- * Response from the {@link Tier.whoami} method
- */
-export interface WhoAmIResponse {
-  id: string
-  email: string
-  key_source: string
-  isolated: boolean
-  url: string
-}
-
-// errors
-/**
- * Response returned by the Tier API on failure
- * @internal
- */
-export interface ErrorResponse {
-  status: number
-  code: string
-  message: string
-}
-/**
- * Test whether a value is a valid {@link ErrorResponse}
- * @internal
- */
-export const isErrorResponse = (e: any): e is ErrorResponse =>
-  isObj(e) &&
-  typeof e.status === 'number' &&
-  typeof e.message === 'string' &&
-  typeof e.code === 'string'
-
-/**
- * Test whether a value is a valid {@link TierError}
- */
-export const isTierError = (e: any): e is TierError =>
-  isObj(e) && e instanceof TierError
-
-/**
- * The object returned by the {@link Tier.can} method.
- * Should not be instantiated directly.
- */
-export class Answer {
-  /**
-   * Indicates that the org is not over their limit for the feature
-   * Note that when an error occurs, `ok` will be set to `true`,
-   * so that we fail open by default. In order to prevent access
-   * on API failures, you must check *both* `answer.ok` *and*
-   * `answer.err`.
-   */
-  ok: boolean
-  /**
-   * The feature checked by {@link Tier.can}
-   */
-  feature: FeatureName
-  /**
-   * The org checked by {@link Tier.can}
-   */
-  org: OrgName
-  /**
-   * Reference to the {@link Tier} client in use.
-   * @internal
-   */
-  client: Tier
-  /**
-   * Any error encountered during the feature limit check.
-   * Note that when an error occurs, `ok` will be set to `true`,
-   * so that we fail open by default. In order to prevent access
-   * on API failures, you must check *both* `answer.ok` *and*
-   * `answer.err`.
-   */
-  err?: TierError
-
-  constructor(
-    client: Tier,
-    org: OrgName,
-    feature: FeatureName,
-    usage?: Usage,
-    err?: TierError
-  ) {
-    this.client = client
-    this.org = org
-    this.feature = feature
-    if (usage && !err) {
-      this.ok = usage.used < usage.limit
-    } else {
-      this.ok = true
-      this.err = err
-    }
-  }
-
-  /**
-   * Report usage for the org and feature checked by {@link Tier.can}
-   */
-  public async report(n: number = 1, options?: ReportParams) {
-    return this.client.report(this.org, this.feature, n, options)
-  }
-}
-
-/**
- * Used for backoff in {@link advance | TierWithClock.advance}
- */
-class Backoff {
-  signal?: AbortSignal
-  maxDelay: number
-  maxTotalDelay: number
-  totalDelay: number = 0
-  count: number = 0
-  timer?: ReturnType<typeof setTimeout>
-  resolve?: () => void
-  timedOut: boolean = false
-  constructor(
-    maxDelay: number,
-    maxTotalDelay: number,
-    { signal }: { signal?: AbortSignal }
-  ) {
-    this.maxTotalDelay = maxTotalDelay
-    this.maxDelay = maxDelay
-    this.signal = signal
-    signal?.addEventListener('abort', () => this.abort())
-  }
-  abort() {
-    const { timer, resolve } = this
-    this.resolve = undefined
-    this.timer = undefined
-    if (timer) clearTimeout(timer)
-    if (resolve) resolve()
-    this.count = 0
-  }
-  async backoff() {
-    // this max total delay is just a convenient safety measure,
-    // running tests for 30 seconds is entirely unreasonable.
-    /* c8 ignore start */
-    const rem = this.maxTotalDelay - this.totalDelay
-    if (rem <= 0 && !this.timedOut) {
-      this.timedOut = true
-      throw new Error('exceeded maximum backoff timeout')
-    }
-    // this part does get tested, but it's a race as to whether it
-    // ends up getting to this point, or aborting the fetch and
-    // throwing before ever calling backoff()
-    if (this.timedOut || this.signal?.aborted) {
-      return
-    }
-    /* c8 ignore stop */
-    this.count++
-    const delay = Math.min(
-      this.maxDelay,
-      rem,
-      Math.pow(this.count, 2) * 10 * (Math.random() + 0.5)
-    )
-    this.totalDelay += delay
-    await new Promise<void>(res => {
-      this.resolve = res
-      this.timer = setTimeout(res, delay)
-    })
-  }
-}
-
-/**
- * Error subclass raised for any error returned by the API.
- * Should not be instantiated directly.
- */
-export class TierError extends Error {
-  /**
-   * The API endpoint that was requested
-   */
-  public path: string
-  /**
-   * The data that was sent to the API endpoint.  Will be a parsed
-   * JavaScript object unless the request JSON was invalid, in which
-   * case it will be a string.
-   */
-  public requestData: any
-  /**
-   * The HTTP response status code returned
-   */
-  public status: number
-  /**
-   * The `code` field in the {@link ErrorResponse}
-   */
-  public code?: string
-  /**
-   * The HTTP response body.  Will be a parsed JavaScript object
-   * unless the response JSON was invalid, in which case it will
-   * be a string.
-   */
-  public responseData: any
-
-  /**
-   * An underlying system error or other cause.
-   */
-  public cause?: Error
-
-  constructor(
-    path: string,
-    reqBody: any,
-    status: number,
-    resBody: any,
-    er?: any
-  ) {
-    if (isErrorResponse(resBody)) {
-      super(resBody.message)
-      this.code = resBody.code
-    } else {
-      super('Tier request failed')
-    }
-    if (er && typeof er === 'object' && er instanceof Error) {
-      this.cause = er
-    }
-    this.path = path
-    this.requestData = reqBody
-    this.status = status
-    this.responseData = resBody
-  }
-}
-
+// XXX remove in v6
 const versionIsNewer = (oldV: string | undefined, newV: string): boolean => {
   if (!oldV) {
     return true
@@ -951,19 +216,6 @@ const versionIsNewer = (oldV: string | undefined, newV: string): boolean => {
     : newN < oldN
     ? false
     : newV.localeCompare(oldV, 'en') > 0
-}
-
-interface ClockRequest {
-  id?: string
-  name?: string
-  present: Date | string
-}
-
-interface ClockResponse {
-  id: string
-  link: string
-  present: string
-  status: string
 }
 
 /**
@@ -989,27 +241,6 @@ export interface TierOptions extends TierGetClientOptions {
 
 export interface TierWithClockOptions extends TierOptions {
   clockID: string
-}
-
-/**
- * Tier constructor options for cases where the baseURL is
- * set by the environment.
- */
-export interface TierGetClientOptions {
-  baseURL?: string
-  apiKey?: string
-  fetchImpl?: typeof fetch
-  debug?: boolean
-  onError?: (er: TierError) => any
-  signal?: AbortSignal
-}
-
-/**
- * Options for the Tier constructor.  Same as {@link TierGetClientOptions},
- * but baseURL is required.
- */
-export interface TierOptions extends TierGetClientOptions {
-  baseURL: string
 }
 
 /**
@@ -1202,14 +433,14 @@ export class Tier {
   }
 
   /**
-   * Look up the limits for all features for a given {@link OrgName}
+   * Look up the limits for all features for a given {@link types.OrgName}
    */
   async lookupLimits(org: OrgName): Promise<Limits> {
     return await this.tryGet<Limits>('/v1/limits', { org })
   }
 
   /**
-   * Look up the payment methods on file for a given {@link OrgName}
+   * Look up the payment methods on file for a given {@link types.OrgName}
    */
   async lookupPaymentMethods(org: OrgName): Promise<PaymentMethodsResponse> {
     return paymentMethodsFromJSON(
@@ -1220,7 +451,7 @@ export class Tier {
   }
 
   /**
-   * Look up limits for a given {@link FeatureName} and {@link OrgName}
+   * Look up limits for a given {@link types.FeatureName} and {@link types.OrgName}
    */
   async lookupLimit(org: OrgName, feature: FeatureName): Promise<Usage> {
     const limits = await this.tryGet<Limits>('/v1/limits', { org })
@@ -1253,7 +484,7 @@ export class Tier {
       req.at = at
     }
     req.clobber = !!clobber
-    return await this.tryPost<ReportRequest>('/v1/report', req)
+    return await this.tryPost<ReportRequest, ReportResponse>('/v1/report', req)
   }
 
   /**
@@ -1363,7 +594,7 @@ export class Tier {
   // note: same endpoint as whois, but when include=info is set, this hits
   // stripe every time and cannot be cached.
   /**
-   * Look up all {@link OrgInfo} metadata about an org
+   * Look up all {@link types.OrgInfo} metadata about an org
    */
   public async lookupOrg(org: OrgName): Promise<LookupOrgResponse> {
     return lookupOrgResponseFromJSON(
@@ -1386,7 +617,7 @@ export class Tier {
   }
 
   /**
-   * Pull the full {@link Model} pushed to Tier
+   * Pull the full {@link types.Model} pushed to Tier
    */
   public async pull(): Promise<Model> {
     return this.tryGet<Model>('/v1/pull')
@@ -1401,8 +632,16 @@ export class Tier {
    * than `9test`, because the non-numeric string causes it to be lexically
    * sorted.  But the plan version `20` sill be considered "higher" than the
    * plan version `9`, because both are strictly numeric.
+   *
+   * **Note** Plan versions are inherently arbitrary, and as such, they really
+   * should not be sorted or given any special priority by being "latest".
+   *
+   * This method will be removed in version 6 of this SDK.
+   *
+   * @deprecated
    */
   public async pullLatest(): Promise<Model> {
+    warnPullLatest()
     const model = await this.pull()
     const plans: { [k: PlanName]: Plan } = Object.create(null)
     const latest: { [k: string]: string } = Object.create(null)
@@ -1420,9 +659,9 @@ export class Tier {
   }
 
   /**
-   * Push a new {@link Model} to Tier
+   * Push a new {@link types.Model} to Tier
    *
-   * Any previously pushed {@link PlanName} will be ignored, new
+   * Any previously pushed {@link types.PlanName} will be ignored, new
    * plans will be added.
    */
   public async push(model: Model): Promise<PushResponse> {
@@ -1437,7 +676,7 @@ export class Tier {
   }
 
   /**
-   * Return an {@link Answer} indicating whether an org can
+   * Return an {@link answer.Answer} indicating whether an org can
    * access a feature, or if they are at their plan limit.
    */
   public async can(org: OrgName, feature: FeatureName): Promise<Answer> {
@@ -1460,18 +699,21 @@ export class Tier {
    * @deprecated alias for {@link Tier.lookupLimits}
    */
   public async limits(org: OrgName): Promise<Limits> {
+    warnDeprecated('limits', 'lookupLimits')
     return this.lookupLimits(org)
   }
   /**
    * @deprecated alias for {@link Tier.lookupLimit}
    */
   public async limit(org: OrgName, feature: FeatureName): Promise<Usage> {
+    warnDeprecated('limit', 'lookupLimit')
     return this.lookupLimit(org, feature)
   }
   /**
    * @deprecated alias for {@link Tier.lookupPhase}
    */
   public async phase(org: OrgName): Promise<CurrentPhase> {
+    warnDeprecated('phase', 'lookupPhase')
     return this.lookupPhase(org)
   }
   /* c8 ignore stop */

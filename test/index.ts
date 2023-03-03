@@ -1,3 +1,10 @@
+const warnings: string[] = []
+Object.defineProperty(process, 'emitWarning', {
+  value: (msg: string) => {
+    warnings.push(msg)
+  },
+})
+
 import { actualRequestUrl } from 'actual-request-url'
 import { createServer } from 'http'
 import { createServer as createNetServer } from 'net'
@@ -5,7 +12,8 @@ import t from 'tap'
 
 import { default as NodeFetch } from 'node-fetch'
 import type { OrgInfo, PushResponse } from '../'
-import { LookupOrgResponseJSON, OrgInfoJSON, Tier } from '../dist/cjs/client.js'
+import { Tier } from '../dist/cjs/client.js'
+import { LookupOrgResponseJSON, OrgInfoJSON } from '../dist/cjs/tier-types.js'
 
 const port = 10000 + (process.pid % 10000)
 const date = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}Z$/
@@ -37,7 +45,7 @@ t.match(tier, {
   isOrgName: Function,
   isFeatureName: Function,
   isPlanName: Function,
-  isVersionedFeatureName: Function,
+  isFeatureNameVersioned: Function,
   isFeatures: Function,
   isPhase: Function,
   validatePlan: Function,
@@ -69,8 +77,8 @@ t.test('type checks', async t => {
   t.equal(tier.isFeatures('feature:yup@plan:ok@1'), true)
   t.equal(tier.isFeatures('feature:nope'), false)
   t.equal(tier.isFeatures('feature:nope@2'), false)
-  t.equal(tier.isVersionedFeatureName('feature:nope'), false)
-  t.equal(tier.isVersionedFeatureName('feature:yup@plan:ok@1'), true)
+  t.equal(tier.isFeatureNameVersioned('feature:nope'), false)
+  t.equal(tier.isFeatureNameVersioned('feature:yup@plan:ok@1'), true)
   t.equal(tier.isFeatureName('feature:yup'), true)
   t.equal(tier.isFeatureName('nope'), false)
   t.equal(
@@ -1451,3 +1459,33 @@ t.test('withClock', t => {
 })
 
 t.test('called init', async () => t.equal(initCalled, true))
+
+t.test('warnings', t => {
+  // because we had a test for it earlier
+  t.same(warnings, [
+    'pullLatest is deprecated, and will be removed in the next version',
+  ])
+  const server = createServer((_req, res) => {
+    res.setHeader('connection', 'close')
+    res.end('{"usage":[],"effective":0,"plans":{}}')
+  })
+  t.teardown(() => {
+    server.close()
+  })
+  server.listen(port, async () => {
+    await tier.pullLatest()
+    await tier.limit('org:o', 'feature:foo')
+    await tier.phase('org:o')
+    await tier.limits('org:o')
+    await tier.limit('org:o', 'feature:foo')
+    await tier.phase('org:o')
+    await tier.limits('org:o')
+    t.same(warnings, [
+      'pullLatest is deprecated, and will be removed in the next version',
+      'Tier.limit is deprecated. Please use Tier.lookupLimit instead.',
+      'Tier.phase is deprecated. Please use Tier.lookupPhase instead.',
+      'Tier.limits is deprecated. Please use Tier.lookupLimits instead.',
+    ])
+    t.end()
+  })
+})

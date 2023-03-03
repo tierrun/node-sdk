@@ -29,7 +29,7 @@ import type {
 // actual API methods
 
 /**
- * Pull the full {@link Model} pushed to Tier
+ * Pull the full {@link types.Model} pushed to Tier
  *
  * Convenience wrapper for {@link client.Tier.pull | Tier.pull}
  */
@@ -51,6 +51,13 @@ export async function pull(
  * plan version `9`, because both are strictly numeric.
  *
  * Convenience wrapper for {@link client.Tier.pullLatest | Tier.pullLatest}
+ *
+ * **Note** Plan versions are inherently arbitrary, and as such, they really
+ * should not be sorted or given any special priority by being "latest".
+ *
+ * This method will be removed in version 6 of this SDK.
+ *
+ * @deprecated
  */
 export async function pullLatest(
   clientOptions?: TierGetClientOptions
@@ -60,7 +67,7 @@ export async function pullLatest(
 }
 
 /**
- * Look up the limits for all features for a given {@link OrgName}
+ * Look up the limits for all features for a given {@link types.OrgName}
  *
  * Convenience wrapper for {@link client.Tier.lookupLimits | Tier.lookupLimits}
  */
@@ -73,7 +80,7 @@ export async function lookupLimits(
 }
 
 /**
- * Look up limits for a given {@link FeatureName} and {@link OrgName}
+ * Look up limits for a given {@link types.FeatureName} and {@link types.OrgName}
  *
  * Convenience wrapper for {@link client.Tier.lookupLimit | Tier.lookupLimit}
  */
@@ -103,7 +110,7 @@ export async function report(
 }
 
 /**
- * Return an {@link Answer} indicating whether an org can
+ * Return an {@link answer.Answer} indicating whether an org can
  * access a feature, or if they are at their plan limit.
  *
  * Convenience wrapper for {@link client.Tier.can | Tier.can}
@@ -218,7 +225,7 @@ export async function whois(org: OrgName): Promise<WhoIsResponse> {
 }
 
 /**
- * Look up all {@link OrgInfo} metadata about an org
+ * Look up all {@link types.OrgInfo} metadata about an org
  *
  * Convenience wrapper for {@link client.Tier.lookupOrg | Tier.lookupOrg}
  */
@@ -228,7 +235,7 @@ export async function lookupOrg(org: OrgName): Promise<LookupOrgResponse> {
 }
 
 /**
- * Look up all the Payment Methods available for a given {@link OrgName}
+ * Look up all the Payment Methods available for a given {@link types.OrgName}
  *
  * Convenience wrapper for {@link client.Tier.lookupPaymentMethods | Tier.lookupPaymentMethods}
  */
@@ -260,9 +267,9 @@ export async function lookupPhase(org: OrgName): Promise<CurrentPhase> {
 }
 
 /**
- * Push a new {@link Model} to Tier
+ * Push a new {@link types.Model} to Tier
  *
- * Any previously pushed {@link PlanName} will be ignored, new
+ * Any previously pushed {@link types.PlanName} will be ignored, new
  * plans will be added.
  *
  * Convenience wrapper for {@link client.Tier.push | Tier.push}
@@ -292,10 +299,6 @@ export async function fromEnv(
 ): Promise<Tier> {
   return getClient(options)
 }
-
-/**
- * @module client
- */
 import {
   isErrorResponse,
   isFeatureName,
@@ -305,7 +308,6 @@ import {
   isPhase,
   isPlanName,
   isTierError,
-  isVersionedFeatureName,
   Tier,
   validateFeatureDefinition,
   validateFeatureTier,
@@ -320,7 +322,8 @@ export * from './client.js'
  * @deprecated alias for lookupLimits
  */
 export async function limits(org: OrgName): Promise<Limits> {
-  return lookupLimits(org)
+  const tier = await getClient()
+  return tier.limits(org)
 }
 /**
  * @deprecated alias for lookupLimit
@@ -329,13 +332,15 @@ export async function limit(
   org: OrgName,
   feature: FeatureName
 ): Promise<Usage> {
-  return lookupLimit(org, feature)
+  const tier = await getClient()
+  return tier.limit(org, feature)
 }
 /**
  * @deprecated alias for lookupPhase
  */
 export async function phase(org: OrgName): Promise<CurrentPhase> {
-  return lookupPhase(org)
+  const tier = await getClient()
+  return tier.phase(org)
 }
 /* c8 ignore stop */
 
@@ -348,7 +353,6 @@ const TIER = {
   isPhase,
   isPlanName,
   isTierError,
-  isVersionedFeatureName,
   validateFeatureDefinition,
   validateFeatureTier,
   validateModel,
@@ -365,7 +369,6 @@ const TIER = {
   lookupPaymentMethods,
   lookupPhase,
   pull,
-  pullLatest,
   push,
   report,
   schedule,
@@ -377,6 +380,7 @@ const TIER = {
   withClock,
   fromEnv,
 
+  pullLatest,
   limit,
   limits,
   phase,
