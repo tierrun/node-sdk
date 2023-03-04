@@ -25,6 +25,21 @@ import type {
   WhoAmIResponse,
   WhoIsResponse,
 } from './client.js'
+import {
+  isErrorResponse,
+  isFeatureName,
+  isFeatureNameVersioned,
+  isFeatures,
+  isOrgName,
+  isPhase,
+  isPlanName,
+  isTierError,
+  Tier,
+  validateFeatureDefinition,
+  validateFeatureTier,
+  validateModel,
+  validatePlan,
+} from './client.js'
 
 // actual API methods
 
@@ -299,21 +314,6 @@ export async function fromEnv(
 ): Promise<Tier> {
   return getClient(options)
 }
-import {
-  isErrorResponse,
-  isFeatureName,
-  isFeatureNameVersioned,
-  isFeatures,
-  isOrgName,
-  isPhase,
-  isPlanName,
-  isTierError,
-  Tier,
-  validateFeatureDefinition,
-  validateFeatureTier,
-  validateModel,
-  validatePlan,
-} from './client.js'
 
 export * from './client.js'
 
