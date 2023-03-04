@@ -81,6 +81,7 @@ export type {
   FeatureName,
   FeatureNameVersioned,
   Features,
+  FeatureTier,
   Limits,
   LookupOrgResponse,
   Mode,
