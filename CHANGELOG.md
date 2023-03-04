@@ -1,5 +1,14 @@
 # change log
 
+## 5.5
+
+- add end, trial to PhaseResponse (2 minutes ago)
+- Add test clock support (24 hours ago)
+
+## 5.4
+
+- add support for FeatureDefinition.divide
+
 ## 5.3
 
 - Add support for passing in an AbortSignal to cancel any
