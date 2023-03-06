@@ -194,6 +194,30 @@ t.test('isFeatureDefinition', t => {
       divide: { by: 100, rounding: 'up' },
     })
   )
+  t.ok(
+    isFeatureDefinition({
+      tiers: [{ price: 1, upto: 10 }],
+      divide: { by: 100, rounding: 'up' },
+    })
+  )
+  t.notOk(
+    isFeatureDefinition({
+      tiers: [{ base: 1 }],
+      divide: { by: 100, rounding: 'up' },
+    })
+  )
+  t.notOk(
+    isFeatureDefinition({
+      tiers: [{ base: 1, upto: 10 }],
+      divide: { by: 100, rounding: 'up' },
+    })
+  )
+  t.notOk(
+    isFeatureDefinition({
+      tiers: [{ base: 1, price: 10 }],
+      divide: { by: 100, rounding: 'up' },
+    })
+  )
   t.notOk(
     isFeatureDefinition({
       tiers: [{ upto: 1, price: 1 }, {}],

@@ -246,7 +246,7 @@ export const isFeatureDefinition = (f: any): f is FeatureDefinition =>
   !(f.base !== undefined && f.tiers) &&
   optionalIs(f.aggregate, isAggregate) &&
   optionalIs(f.divide, isDivide) &&
-  !(f.divide?.by && f.tiers?.length > 1)
+  !(f.divide?.by && (f.tiers?.length > 1 || f.tiers?.[0]?.base))
 
 /**
  * Asserts that a value is a valid {@link FeatureDefinition}
@@ -288,8 +288,8 @@ export const validateFeatureDefinition: (f: any) => void = (
     throw 'invalid aggregate'
   }
   if (f.divide !== undefined) {
-    if (f.tiers && f.tiers.length > 1 && f.divide.by) {
-      throw 'may not use divide.by with multiple tiers'
+    if (f.tiers && (f.tiers.length > 1 || f.tiers[0].base) && f.divide.by) {
+      throw 'may not use divide.by with multiple tiers or tier base price'
     }
     try {
       validateDivide(f.divide)

@@ -14,7 +14,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 10`] = `
 Array [
-  undefined,
+  TypeError: Cannot read properties of undefined (reading 'base'),
   Object {
     "divide": Object {
       "by": 100,
@@ -45,7 +45,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 12`] = `
 Array [
-  "may not use divide.by with multiple tiers",
+  "may not use divide.by with multiple tiers or tier base price",
   Object {
     "divide": Object {
       "by": 100,
