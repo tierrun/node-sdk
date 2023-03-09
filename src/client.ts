@@ -82,6 +82,7 @@ export type {
   FeatureNameVersioned,
   Features,
   FeatureTier,
+  Interval,
   Limits,
   LookupOrgResponse,
   Mode,
