@@ -1,5 +1,9 @@
 # change log
 
+## 5.6
+
+- default baseURL to https://api.tier.run if apiKey is set
+
 ## 5.5
 
 - add end, trial to PhaseResponse (2 minutes ago)
