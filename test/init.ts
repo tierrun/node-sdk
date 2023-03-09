@@ -110,3 +110,19 @@ t.test('debug runs sidecar in debug mode', async t => {
     ['tier:', 'started sidecar', Number],
   ])
 })
+
+t.test('default to api.tier.run if apiKey is set', async t => {
+  delete process.env.TIER_BASE_URL
+  delete process.env.TIER_API_KEY
+  const c = await getClient({ apiKey: 'param api key' })
+  t.equal(c.baseURL, 'https://api.tier.run')
+  t.equal(c.apiKey, 'param api key')
+  process.env.TIER_API_KEY = 'env api key'
+  const d = await getClient()
+  t.equal(d.baseURL, 'https://api.tier.run')
+  t.equal(d.apiKey, 'env api key')
+  const e = await getClient({ apiKey: 'param 2 api key' })
+  t.equal(e.baseURL, 'https://api.tier.run')
+  t.equal(e.apiKey, 'param 2 api key')
+  t.end()
+})

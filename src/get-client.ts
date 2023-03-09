@@ -15,7 +15,7 @@
 // This spawns a sidecar on localhost as needed, if baseURL is not set.
 
 import type { ChildProcess } from 'child_process'
-import { Tier, TierGetClientOptions, TierOptions } from './client.js'
+import { Tier, TierGetClientOptions } from './client.js'
 
 // just use node-fetch as a polyfill for old node environments
 let fetchPromise: Promise<void> | null = null
@@ -63,22 +63,23 @@ const debugLog = debug
 export const getClient = async (
   clientOptions: TierGetClientOptions = {}
 ): Promise<Tier> => {
-  await init()
-  const { TIER_BASE_URL } = PROCESS.env
-  if (!TIER_BASE_URL && !clientOptions.baseURL) {
+  const { TIER_BASE_URL, TIER_API_KEY } = PROCESS.env
+  let { baseURL = TIER_BASE_URL, apiKey = TIER_API_KEY } = clientOptions
+  baseURL = baseURL || (apiKey ? 'https://api.tier.run' : undefined)
+  if (!baseURL) {
+    await init()
+    baseURL = PROCESS.env.TIER_BASE_URL
+  }
+  if (!baseURL) {
     throw new Error('failed sidecar initialization')
   }
-  return new Tier(
-    Object.assign(
-      {
-        baseURL: TIER_BASE_URL,
-        apiKey: PROCESS.env.TIER_API_KEY,
-        debug,
-        fetchImpl: FETCH,
-      },
-      clientOptions
-    ) as TierOptions
-  )
+  return new Tier({
+    debug,
+    fetchImpl: FETCH,
+    ...clientOptions,
+    baseURL,
+    apiKey,
+  })
 }
 
 // evade clever bundlers that try to import child_process for the client
