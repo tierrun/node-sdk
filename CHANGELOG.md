@@ -1,13 +1,17 @@
 # change log
 
+## 5.7
+
+- Add current.effective/end to CurrentPhase
+
 ## 5.6
 
 - default baseURL to https://api.tier.run if apiKey is set
 
 ## 5.5
 
-- add end, trial to PhaseResponse (2 minutes ago)
-- Add test clock support (24 hours ago)
+- add end, trial to CurrentPhase
+- Add test clock support
 
 ## 5.4
 

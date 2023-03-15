@@ -436,12 +436,40 @@ export const isFeatures = (f: any): f is Features =>
  * Object representing the current phase in an org's subscription schedule
  */
 export interface CurrentPhase {
+  /**
+   * When the current phase became effective
+   */
   effective: Date
+  /**
+   * When the current phase will end (if defined)
+   */
   end?: Date
+  /**
+   * The set of versioned features the customer is subscribed to in this phase
+   */
   features?: FeatureNameVersioned[]
+  /**
+   * The set of plans the customer is currently subscribed to in this phase
+   */
   plans?: PlanName[]
+  /**
+   * One-off versioned features that the customer is subscribed to
+   */
   fragments?: FeatureNameVersioned[]
+  /**
+   * Whether or not this is a trial phase
+   */
   trial: boolean
+  /**
+   * The effective and end date of the current billing period
+   *
+   * For trial periods, this will be the start and end of the trial phase,
+   * no matter how long it is.
+   */
+  current?: {
+    effective: Date
+    end: Date
+  }
 }
 
 export interface CurrentPhaseResponse {
@@ -451,6 +479,10 @@ export interface CurrentPhaseResponse {
   plans?: PlanName[]
   fragments?: FeatureNameVersioned[]
   trial?: boolean
+  current: {
+    effective: string
+    end: string
+  }
 }
 
 /**
@@ -460,7 +492,6 @@ export interface CurrentPhaseResponse {
 export interface Phase {
   effective?: Date
   features: Features[]
-  plans?: PlanName[]
   trial?: boolean
 }
 

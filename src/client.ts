@@ -618,11 +618,16 @@ export class Tier {
   public async lookupPhase(org: OrgName): Promise<CurrentPhase> {
     const resp = await this.tryGet<CurrentPhaseResponse>('/v1/phase', { org })
     const end = resp.end !== undefined ? new Date(resp.end) : resp.end
+    const current = resp.current && {
+      effective: new Date(resp.current.effective),
+      end: new Date(resp.current.end),
+    }
     return {
       ...resp,
       effective: new Date(resp.effective),
       end,
       trial: !!resp.trial,
+      current,
     }
   }
 
@@ -706,21 +711,21 @@ export class Tier {
 
   /* c8 ignore start */
   /**
-   * @deprecated alias for {@link Tier.lookupLimits}
+   * @deprecated alias for {@link Tier#lookupLimits}
    */
   public async limits(org: OrgName): Promise<Limits> {
     warnDeprecated('limits', 'lookupLimits')
     return this.lookupLimits(org)
   }
   /**
-   * @deprecated alias for {@link Tier.lookupLimit}
+   * @deprecated alias for {@link Tier#lookupLimit}
    */
   public async limit(org: OrgName, feature: FeatureName): Promise<Usage> {
     warnDeprecated('limit', 'lookupLimit')
     return this.lookupLimit(org, feature)
   }
   /**
-   * @deprecated alias for {@link Tier.lookupPhase}
+   * @deprecated alias for {@link Tier#lookupPhase}
    */
   public async phase(org: OrgName): Promise<CurrentPhase> {
     warnDeprecated('phase', 'lookupPhase')

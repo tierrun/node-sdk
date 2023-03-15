@@ -236,6 +236,10 @@ t.test('lookupPhase', t => {
             'feature:transfer@plan:free@1',
           ],
           plans: ['plan:free@1'],
+          current: {
+            effective: '2022-10-13T16:52:11-07:00',
+            end: '2022-11-13T16:52:11-07:00',
+          },
         }
       : {
           effective: '2022-10-13T16:52:11-07:00',
@@ -246,9 +250,14 @@ t.test('lookupPhase', t => {
           ],
           plans: ['plan:free@1'],
           trial: true,
+          current: {
+            effective: '2022-10-13T16:52:11-07:00',
+            end: '2025-01-01T00:00:00.000Z',
+          },
         }
     res.end(JSON.stringify(phase))
   })
+
   server.listen(port, async () => {
     t.same(await tier.lookupPhase('org:o'), {
       effective: new Date('2022-10-13T16:52:11-07:00'),
@@ -256,6 +265,10 @@ t.test('lookupPhase', t => {
       features: ['feature:storage@plan:free@1', 'feature:transfer@plan:free@1'],
       plans: ['plan:free@1'],
       trial: false,
+      current: {
+        effective: new Date('2022-10-13T16:52:11-07:00'),
+        end: new Date('2022-11-13T16:52:11-07:00'),
+      },
     })
     t.same(await tier.lookupPhase('org:p'), {
       effective: new Date('2022-10-13T16:52:11-07:00'),
@@ -263,6 +276,10 @@ t.test('lookupPhase', t => {
       features: ['feature:storage@plan:free@1', 'feature:transfer@plan:free@1'],
       plans: ['plan:free@1'],
       trial: true,
+      current: {
+        effective: new Date('2022-10-13T16:52:11-07:00'),
+        end: new Date('2025-01-01T00:00:00.000Z'),
+      },
     })
     t.end()
   })
