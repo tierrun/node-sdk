@@ -14,7 +14,7 @@ Array [
 
 exports[`test/is.ts TAP validateFeatureDefinition > must match snapshot 10`] = `
 Array [
-  TypeError: Cannot read properties of undefined (reading 'base'),
+  undefined,
   Object {
     "divide": Object {
       "by": 100,

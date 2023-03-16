@@ -288,7 +288,11 @@ export const validateFeatureDefinition: (f: any) => void = (
     throw 'invalid aggregate'
   }
   if (f.divide !== undefined) {
-    if (f.tiers && (f.tiers.length > 1 || f.tiers[0].base) && f.divide.by) {
+    if (
+      f.tiers &&
+      (f.tiers.length > 1 || (f.tiers.length === 1 && f.tiers[0].base)) &&
+      f.divide.by
+    ) {
       throw 'may not use divide.by with multiple tiers or tier base price'
     }
     try {
