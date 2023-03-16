@@ -316,6 +316,41 @@ export async function fromEnv(
 }
 
 export * from './client.js'
+export type { TierGetClientOptions, TierWithClock } from './client.js'
+export type {
+  Aggregate,
+  CancelPhase,
+  CheckoutParams,
+  CheckoutResponse,
+  CurrentPhase,
+  CurrentPhaseResponse,
+  Divide,
+  FeatureDefinition,
+  FeatureName,
+  FeatureNameVersioned,
+  Features,
+  FeatureTier,
+  Interval,
+  Limits,
+  LookupOrgResponse,
+  Mode,
+  Model,
+  OrgInfo,
+  OrgName,
+  PaymentMethodsResponse,
+  Phase,
+  Plan,
+  PlanName,
+  PushResponse,
+  ReportParams,
+  ReportResponse,
+  ScheduleParams,
+  ScheduleResponse,
+  SubscribeParams,
+  Usage,
+  WhoAmIResponse,
+  WhoIsResponse,
+} from './tier-types.js'
 
 /* c8 ignore start */
 /**
