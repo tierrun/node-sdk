@@ -112,6 +112,10 @@ t.test('lookupLimits', t => {
     res.setHeader('connection', 'close')
     server.close()
     t.equal(req.method, 'GET')
+    t.match(
+      req.headers['user-agent'],
+      new RegExp(`tier\/[^ ]+ [a-f0-9]{8} node\/${process.version}$`)
+    )
     t.equal(req.url, '/v1/limits?org=org%3Ao')
     res.end(JSON.stringify({ ok: true }))
   })

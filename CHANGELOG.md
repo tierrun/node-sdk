@@ -1,5 +1,9 @@
 # change log
 
+## 5.8
+
+- Include `user-agent` header, can be set with `userAgent` option
+
 ## 5.7
 
 - Add current.effective/end to CurrentPhase

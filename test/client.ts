@@ -62,3 +62,32 @@ t.test('debuglog', t => {
     t.end()
   })
 })
+
+t.test('user agent', t => {
+  t.test('user agent default from node process', t => {
+    //@ts-ignore
+    global.navigator = undefined
+    global.process = global.process || { version: 'v4.2.0' }
+    const { Tier } = t.mock('../', {})
+    const tier = new Tier({ baseURL: 'http://x.com' })
+    t.match(tier.userAgent, /^tier\/[^ ]+ [a-f0-9]{8} node\/[^ ]+$/)
+    t.end()
+  })
+
+  t.test('user agent from navigator', t => {
+    //@ts-ignore
+    global.navigator = { userAgent: 'mozilla/1.2.3' }
+    const { Tier } = t.mock('../', {})
+    const tier = new Tier({ baseURL: 'http://x.com' })
+    t.match(tier.userAgent, /^tier\/[^ ]+ [a-f0-9]{8} mozilla\/1.2.3$/)
+    t.end()
+  })
+
+  t.test('user agent explicit', t => {
+    const tier = new Tier({ baseURL: 'http://x.y', userAgent: 'hello' })
+    t.equal(tier.userAgent, 'hello')
+    t.end()
+  })
+
+  t.end()
+})

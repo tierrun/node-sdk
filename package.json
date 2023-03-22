@@ -35,12 +35,12 @@
   "scripts": {
     "prepare": "tsc -p tsconfig-cjs.json && tsc -p tsconfig-esm.json && bash fixup.sh",
     "format": "prettier --write . --loglevel warn",
-    "test": "c8 tap test/*.ts",
-    "snap": "c8 tap test/*.ts",
+    "test": "c8 tap",
+    "snap": "c8 tap",
     "pretest": "npm run prepare",
     "presnap": "npm run prepare",
     "preversion": "npm test",
-    "postversion": "npm publish",
+    "postversion": "npm run prepare && npm publish",
     "prepublishOnly": "git push origin --follow-tags",
     "postpublish": "rm -rf dist",
     "typedoc": "typedoc --tsconfig tsconfig-esm.json ./src/*.ts"

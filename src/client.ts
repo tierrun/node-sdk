@@ -5,6 +5,18 @@
 // just the client bits, assuming that the sidecar is already
 // initialized and running somewhere.
 
+import { git, version } from './version.js'
+
+const defaultUserAgent = `tier/${version} ${git.substring(0, 8)} ${
+  typeof navigator !== 'undefined'
+    ? navigator.userAgent
+    : typeof process !== 'undefined'
+    ? `node/${process.version}`
+  /* c8 ignore start */
+    : ''
+  /* c8 ignore stop */
+}`.trim()
+
 import { Answer } from './answer.js'
 import { Backoff } from './backoff.js'
 import { isTierError, TierError } from './tier-error.js'
@@ -236,6 +248,7 @@ export interface TierGetClientOptions {
   debug?: boolean
   onError?: (er: TierError) => any
   signal?: AbortSignal
+  userAgent?: string
 }
 
 /**
@@ -286,6 +299,11 @@ export class Tier {
   signal?: AbortSignal
 
   /**
+   * the User-Agent header that Tier sends
+   */
+  userAgent: string
+
+  /**
    * Create a new Tier client.  Set `{ debug: true }` in the
    * options object to enable debugging output.
    */
@@ -296,6 +314,7 @@ export class Tier {
     debug = false,
     onError,
     signal,
+    userAgent = defaultUserAgent,
   }: TierOptions) {
     this.fetch = fetchImpl
     this.debug = !!debug
@@ -303,6 +322,7 @@ export class Tier {
     this.apiKey = apiKey
     this.onError = onError
     this.signal = signal
+    this.userAgent = userAgent
   }
 
   async withClock(
@@ -794,6 +814,7 @@ const fetchOptions = (
     signal,
     headers: {
       ...(settings.headers || {}),
+      'user-agent': tier.userAgent,
       ...authHeader,
       ...clockHeader,
     } as HeadersInit,
