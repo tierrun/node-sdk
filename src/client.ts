@@ -248,7 +248,7 @@ export interface TierGetClientOptions {
   debug?: boolean
   onError?: (er: TierError) => any
   signal?: AbortSignal
-  userAgent?: string
+  userAgent?: string | false
 }
 
 /**
@@ -299,9 +299,14 @@ export class Tier {
   signal?: AbortSignal
 
   /**
-   * the User-Agent header that Tier sends
+   * The User-Agent header that Tier sends.
+   *
+   * Set to `false` to not send a user agent header.  Leave blank to
+   * send the default User-Agent header, which includes the Tier client
+   * version, along with either Node.js process.version or browser's
+   * navigator.userAgent
    */
-  userAgent: string
+  userAgent?: string | false
 
   /**
    * Create a new Tier client.  Set `{ debug: true }` in the
@@ -814,7 +819,7 @@ const fetchOptions = (
     signal,
     headers: {
       ...(settings.headers || {}),
-      'user-agent': tier.userAgent,
+      ...(tier.userAgent ? { 'user-agent': tier.userAgent } : {}),
       ...authHeader,
       ...clockHeader,
     } as HeadersInit,

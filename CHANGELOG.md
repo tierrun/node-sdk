@@ -1,5 +1,10 @@
 # change log
 
+## 5.9
+
+- Support `userAgent: false` option to suppress adding
+  `user-agent` header
+
 ## 5.8
 
 - Include `user-agent` header, can be set with `userAgent` option

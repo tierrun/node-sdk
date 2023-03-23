@@ -29,6 +29,7 @@ t.test('debuglog', t => {
   const tier = new Tier({
     baseURL: `http://localhost:${port}`,
     apiKey,
+    userAgent: false,
   })
   //@ts-ignore
   tier.debugLog('hello')
@@ -86,6 +87,12 @@ t.test('user agent', t => {
   t.test('user agent explicit', t => {
     const tier = new Tier({ baseURL: 'http://x.y', userAgent: 'hello' })
     t.equal(tier.userAgent, 'hello')
+    t.end()
+  })
+
+  t.test('user agent false', t => {
+    const tier = new Tier({ baseURL: 'http://x.y', userAgent: false })
+    t.equal(tier.userAgent, false)
     t.end()
   })
 
