@@ -12,8 +12,8 @@ const defaultUserAgent = `tier/${version} ${git.substring(0, 8)} ${
     ? navigator.userAgent
     : typeof process !== 'undefined'
     ? `node/${process.version}`
-  /* c8 ignore start */
-    : ''
+    : /* c8 ignore start */
+      ''
   /* c8 ignore stop */
 }`.trim()
 

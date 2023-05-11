@@ -19,9 +19,9 @@ import { Tier, TierGetClientOptions } from './client.js'
 
 // just use node-fetch as a polyfill for old node environments
 let fetchPromise: Promise<void> | null = null
-let FETCH = global.fetch
+let FETCH = globalThis.fetch
 if (typeof FETCH !== 'function') {
-  fetchPromise = import('node-fetch').then(f => {
+  fetchPromise = import('isomorphic-unfetch').then(f => {
     //@ts-ignore
     FETCH = f.default
     fetchPromise = null
