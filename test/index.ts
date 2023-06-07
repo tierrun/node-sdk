@@ -504,6 +504,75 @@ t.test('checkout', t => {
       }),
       checkoutRes
     )
+
+    expect = {
+      org: 'org:o',
+      success_url: 'http://success',
+      cancel_url: 'https://cancel/',
+      features: ['plan:p@1'],
+      trial_days: 99,
+      tax: {
+        automatic: true,
+      },
+    }
+    t.same(
+      await tier.checkout('org:o', 'http://success', {
+        cancelUrl: 'https://cancel/',
+        features: 'plan:p@1',
+        trialDays: 99,
+        tax: {
+          automatic: true,
+        },
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      success_url: 'http://success',
+      cancel_url: 'https://cancel/',
+      features: ['plan:p@1'],
+      trial_days: 99,
+      tax: {
+        collect_id: true,
+      },
+    }
+    t.same(
+      await tier.checkout('org:o', 'http://success', {
+        cancelUrl: 'https://cancel/',
+        features: 'plan:p@1',
+        trialDays: 99,
+        tax: {
+          collectId: true,
+        },
+      }),
+      checkoutRes
+    )
+
+    expect = {
+      org: 'org:o',
+      success_url: 'http://success',
+      cancel_url: 'https://cancel/',
+      features: ['plan:p@1'],
+      trial_days: 99,
+      tax: {
+        automatic: true,
+        collect_id: true,
+      },
+    }
+    t.same(
+      await tier.checkout('org:o', 'http://success', {
+        cancelUrl: 'https://cancel/',
+        features: 'plan:p@1',
+        trialDays: 99,
+        tax: {
+          automatic: true,
+          collectId: true,
+        },
+      }),
+      checkoutRes
+    )
+
     server.close()
     t.end()
   })

@@ -209,7 +209,7 @@ way as calling `updateOrg(org, info)`.
 If a string `paymentMethodID` is specified, then it will be used
 as the billing method for the subscription.
 
-### `checkout(org, successUrl, { cancelUrl, features, trialDays, requireBillingAddress })`
+### `checkout(org, successUrl, { cancelUrl, features, trialDays, requireBillingAddress, tax })`
 
 Generate a Stripe Checkout flow, and return a `{ url }` object.
 Redirect the user to that `url` to have them complete the
@@ -233,6 +233,7 @@ Optional parameters:
 - `requireBillingAddress` If set to `true`, then the user will be
   required to add a billing address to complete the checkout
   flow.
+- `tax` Configure automatic tax collection
 
 ### `updateOrg(org, info)`
 

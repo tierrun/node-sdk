@@ -522,6 +522,10 @@ export interface CheckoutParams {
   features?: Features | Features[]
   trialDays?: number
   requireBillingAddress?: boolean
+  tax?: {
+    automatic?: boolean
+    collectId?: boolean
+  }
 }
 
 export interface CheckoutRequest {
@@ -531,6 +535,10 @@ export interface CheckoutRequest {
   trial_days?: number
   cancel_url?: string
   require_billing_address?: boolean
+  tax?: {
+    automatic?: boolean
+    collect_id?: boolean
+  }
 }
 
 /**

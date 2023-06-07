@@ -12,8 +12,8 @@ const defaultUserAgent = `tier/${version} ${git.substring(0, 8)} ${
     ? navigator.userAgent
     : typeof process !== 'undefined'
     ? `node/${process.version}`
-  /* c8 ignore start */
-    : ''
+    : /* c8 ignore start */
+      ''
   /* c8 ignore stop */
 }`.trim()
 
@@ -162,6 +162,22 @@ const orgInfoToJSON = (o: OrgInfo): OrgInfoJSON => {
     invoice_settings: {
       default_payment_method: invoiceSettings?.defaultPaymentMethod || '',
     },
+  }
+}
+
+// turn a camelCase CheckoutParams into a snake_case CheckoutRequest
+const checkoutParamsToJSON = (
+  c: CheckoutParams
+): Omit<CheckoutRequest, 'org' | 'success_url'> => {
+  return {
+    cancel_url: c.cancelUrl,
+    require_billing_address: c.requireBillingAddress,
+    tax: c.tax
+      ? {
+          automatic: c.tax.automatic,
+          collect_id: c.tax.collectId,
+        }
+      : undefined,
   }
 }
 
@@ -534,8 +550,7 @@ export class Tier {
     const cr: CheckoutRequest = {
       org,
       success_url: successUrl,
-      cancel_url: params.cancelUrl,
-      require_billing_address: params.requireBillingAddress,
+      ...checkoutParamsToJSON(params),
     }
     const { features, trialDays } = params
     if (features) {
