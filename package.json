@@ -1,6 +1,6 @@
 {
   "name": "tier",
-  "version": "5.9.0",
+  "version": "5.10.0",
   "files": [
     "dist"
   ],
@@ -89,6 +89,6 @@
     "node-fetch": "^2.6.7"
   },
   "engines": {
-    "node": ">=12"
+    "node": ">=16"
   }
 }
