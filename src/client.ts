@@ -503,7 +503,7 @@ export class Tier {
    */
   async lookupLimit(org: OrgName, feature: FeatureName): Promise<Usage> {
     const limits = await this.tryGet<Limits>('/v1/limits', { org })
-    for (const usage of limits.usage) {
+    for (const usage of limits?.usage ?? []) {
       if (
         usage.feature === feature ||
         usage.feature.startsWith(`${feature}@plan:`)
